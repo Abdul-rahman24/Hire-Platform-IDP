@@ -5,7 +5,7 @@ from app import schemas
 from app.repository import QuestionRepository
 
 app = FastAPI(
-    title="TCS iON Clone - Question Bank Microservice",
+    title="IDP Question Bank Microservice",
     description="MVP for managing college placement questions using FastAPI & DynamoDB",
     version="1.0.0"
 )
