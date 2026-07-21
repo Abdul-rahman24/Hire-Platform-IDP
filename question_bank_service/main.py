@@ -244,5 +244,23 @@ def seed_demo_data():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# NEW ENDPOINT: List All Available Question Sets
+@app.get("/question-sets", tags=["Question Sets"])
+def list_all_question_sets():
+    try:
+        # Perform a Filtered Scan to retrieve ONLY the header metadata rows
+        response = table.scan(
+            FilterExpression=boto3.dynamodb.conditions.Attr("questionId").eq("METADATA")
+        )
+        items = response.get("Items", [])
+        
+        return {
+            "message": "Successfully retrieved all question sets",
+            "totalSets": len(items),
+            "data": items
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Mangum Handler for AWS Lambda
 handler = Mangum(app)
