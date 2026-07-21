@@ -185,24 +185,28 @@ export const testConfigService = {
    * Returns exact Question Sets present in Question Bank (SET001, SET002)
    */
   async getQuestionSets() {
+    try {
+      const response = await questionBankService.getQuestionSets();
+      const rawSets = response?.data || response?.questionSets || (Array.isArray(response) ? response : []);
+      if (Array.isArray(rawSets) && rawSets.length > 0) {
+        return rawSets.map(s => {
+          const qId = s.questionSetId || s.id;
+          const title = s.title || s.name || `Assessment Set: ${qId}`;
+          return {
+            questionSetId: qId,
+            questionSetName: `${qId} - ${title}`,
+          };
+        });
+      }
+    } catch (err) {
+      console.error('Failed to fetch question sets from Question Bank API:', err);
+    }
+
     const defaultSets = [
       { questionSetId: 'SET001', questionSetName: 'SET001 - Assessment Set: SET001' },
       { questionSetId: 'SET002', questionSetName: 'SET002 - Assessment Set: SET002' },
-      { questionSetId: 'SET004', questionSetName: 'SET004 - Assessment Set: SET004' },
     ];
-
-    const map = new Map();
-    defaultSets.forEach(s => {
-      const qId = s.questionSetId;
-      if (qId && !map.has(qId)) {
-        map.set(qId, {
-          questionSetId: qId,
-          questionSetName: `${qId} - Assessment Set: ${qId}`,
-        });
-      }
-    });
-
-    return Array.from(map.values());
+    return defaultSets;
   },
 
   /**

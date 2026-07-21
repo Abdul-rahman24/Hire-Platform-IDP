@@ -14,8 +14,6 @@ const getOptText = (opt) => {
   return String(opt);
 };
 
-const ALL_KNOWN_SET_IDS = ['SET001', 'SET002', 'SET004'];
-
 const INITIAL_SETS = [
   { id: 'SET001', questionSetId: 'SET001', name: 'Assessment Set: SET001', updated: 'Active set', questionsCount: 6, status: 'Active' },
   { id: 'SET002', questionSetId: 'SET002', name: 'Assessment Set: SET002', updated: 'Active set', questionsCount: 1, status: 'Active' },
@@ -47,36 +45,49 @@ export default function QuestionBankApp() {
   useEffect(() => {
     setLoadingSets(true);
 
-    Promise.all(
-      ALL_KNOWN_SET_IDS.map(id =>
-        questionBankService.getQuestionSet(id)
-          .then(res => ({ id, data: res }))
-          .catch(() => ({ id, data: null }))
-      )
-    )
-      .then(results => {
-        const activeSets = [];
-
-        results.forEach(({ id, data }) => {
-          if (data && !data.notFound) {
-            const rawQuestions = data.questions || data.data?.questions || [];
-            const validQuestions = rawQuestions.filter(q => q.itemType !== 'QUESTION_SET_HEADER' && (q.questionId || q.id || q.question));
-            const count = data.totalQuestions !== undefined ? data.totalQuestions : validQuestions.length;
-            const setTitle = data.setDetails?.title || data.title || `Assessment Set: ${id}`;
-            activeSets.push({
-              id,
-              questionSetId: id,
-              name: setTitle,
-              updated: 'Active set',
-              questionsCount: count,
-              status: 'Active',
-            });
+    questionBankService.getQuestionSets()
+      .then(async (res) => {
+        const setList = res?.data || res?.questionSets || (Array.isArray(res) ? res : []);
+        if (Array.isArray(setList) && setList.length > 0) {
+          const fetchedSets = await Promise.all(
+            setList.map(async (setObj) => {
+              const id = setObj.questionSetId || setObj.id;
+              try {
+                const details = await questionBankService.getQuestionSet(id);
+                if (details && !details.notFound) {
+                  const rawQuestions = details.questions || details.data?.questions || [];
+                  const validQuestions = rawQuestions.filter(q => q.itemType !== 'QUESTION_SET_HEADER' && (q.questionId || q.id || q.question));
+                  const count = details.totalQuestions !== undefined ? details.totalQuestions : validQuestions.length;
+                  const setTitle = setObj.title || setObj.name || details.setDetails?.title || details.title || `Assessment Set: ${id}`;
+                  return {
+                    id,
+                    questionSetId: id,
+                    name: setTitle,
+                    updated: 'Active set',
+                    questionsCount: count,
+                    status: 'Active',
+                  };
+                }
+              } catch {
+                // fallback
+              }
+              return {
+                id,
+                questionSetId: id,
+                name: setObj.title || setObj.name || `Assessment Set: ${id}`,
+                updated: 'Active set',
+                questionsCount: 0,
+                status: 'Active',
+              };
+            })
+          );
+          if (fetchedSets.length > 0) {
+            setSets(fetchedSets);
           }
-        });
-
-        if (activeSets.length > 0) {
-          setSets(activeSets);
         }
+      })
+      .catch((err) => {
+        console.error('Failed to fetch question sets list from API:', err);
       })
       .finally(() => {
         setLoadingSets(false);

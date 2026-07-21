@@ -38,6 +38,15 @@ const formatQuestionPayload = (payload) => {
  */
 export const questionBankService = {
   /**
+   * API 0: Get All Question Sets
+   * GET /question-sets
+   */
+  async getQuestionSets() {
+    const response = await api.get('/question-sets');
+    return response.data;
+  },
+
+  /**
    * API 1: Create Question Set
    * POST /question-sets
    * @param {string} questionSetId - e.g. "SET001"
