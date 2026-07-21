@@ -40,7 +40,21 @@ function AnomalyBanner({ icon, children, onDismiss }) {
 }
 
 /* ── Metric Card ── */
-function MetricCard({ icon, iconBg, iconColor, label, value, sub }) {
+function MetricCard({ icon, iconBg, iconColor, label, value, sub, loading }) {
+  if (loading) {
+    return (
+      <div className="bg-white p-4.5 rounded-xl border border-slate-200/60 shadow-sm flex flex-col justify-between h-[115px] animate-pulse">
+        <div className="flex justify-between items-center">
+          <div className="w-8 h-8 bg-slate-100 rounded-lg" />
+          <div className="h-2.5 w-20 bg-slate-100 rounded" />
+        </div>
+        <div className="mt-2 space-y-1.5">
+          <div className="h-6 w-14 bg-slate-100 rounded" />
+          <div className="h-2.5 w-24 bg-slate-100 rounded" />
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="bg-white p-4.5 rounded-xl border border-slate-200/60 shadow-sm flex flex-col justify-between h-[115px]">
       <div className="flex justify-between items-center">

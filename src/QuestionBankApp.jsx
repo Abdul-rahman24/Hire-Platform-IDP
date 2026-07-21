@@ -14,12 +14,6 @@ const getOptText = (opt) => {
   return String(opt);
 };
 
-const INITIAL_SETS = [
-  { id: 'SET001', questionSetId: 'SET001', name: 'Assessment Set: SET001', updated: 'Active set', questionsCount: 6, status: 'Active' },
-  { id: 'SET002', questionSetId: 'SET002', name: 'Assessment Set: SET002', updated: 'Active set', questionsCount: 1, status: 'Active' },
-  { id: 'SET004', questionSetId: 'SET004', name: 'Assessment Set: SET004', updated: 'Active set', questionsCount: 0, status: 'Active' },
-];
-
 export default function QuestionBankApp() {
   const toast = useToast();
 
@@ -34,12 +28,12 @@ export default function QuestionBankApp() {
   const [deleteConfirmQuestion, setDeleteConfirmQuestion] = useState(null);
   const [deleteConfirmSet, setDeleteConfirmSet] = useState(null);
 
-  const [loadingSets, setLoadingSets] = useState(false);
+  const [loadingSets, setLoadingSets] = useState(true);
   const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Pure in-memory state for Question Sets (no localStorage)
-  const [sets, setSets] = useState(INITIAL_SETS);
+  // Live state for Question Sets fetched from backend API
+  const [sets, setSets] = useState([]);
 
   // Sync question sets and live question counts from backend API on mount
   useEffect(() => {

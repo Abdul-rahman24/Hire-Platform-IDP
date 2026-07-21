@@ -263,10 +263,10 @@ export default function TestDetailsPage() {
 
           {/* Quick Stats */}
           <div className="grid grid-cols-4 gap-3">
-            <StatMini icon={<FiClock className="w-4 h-4" />} label="Duration" value={`${testData.durationMinutes || 90} min`} color="blue" />
-            <StatMini icon={<FiAward className="w-4 h-4" />} label="Total Marks" value={testData.totalMarks || 100} color="amber" />
-            <StatMini icon={<FiLayers className="w-4 h-4" />} label="Question Set" value={testData.questionSetName || testData.questionSetId || 'Default Set'} color="slate" />
-            <StatMini icon={<FiCheckCircle className="w-4 h-4" />} label="Questions Count" value={questions.length} color="green" />
+            <StatMini icon={<FiClock className="w-4 h-4" />} label="Duration" value={`${testData.durationMinutes || 90} min`} color="blue" loading={loading} />
+            <StatMini icon={<FiAward className="w-4 h-4" />} label="Total Marks" value={testData.totalMarks || 100} color="amber" loading={loading} />
+            <StatMini icon={<FiLayers className="w-4 h-4" />} label="Question Set" value={testData.questionSetName || testData.questionSetId || 'Default Set'} color="slate" loading={loading} />
+            <StatMini icon={<FiCheckCircle className="w-4 h-4" />} label="Questions Count" value={questions.length} color="green" loading={loading} />
           </div>
         </div>
       </motion.div>

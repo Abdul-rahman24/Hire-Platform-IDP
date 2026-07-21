@@ -15,7 +15,7 @@ export default function TopNav() {
   const { title, sub } = PAGE_TITLES[key] || PAGE_TITLES['/test-configuration'];
 
   return (
-    <div className="h-[80px] flex-shrink-0 bg-white border-b border-slate-200/80 flex items-center justify-between px-7">
+    <div className="h-[96px] flex-shrink-0 bg-white border-b border-slate-200/80 flex items-center justify-between px-7">
       <div>
         <h2 className="text-sm font-bold text-slate-900">{title}</h2>
         <p className="text-[10px] text-slate-400 font-medium">{sub}</p>

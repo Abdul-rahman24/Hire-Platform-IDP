@@ -99,7 +99,7 @@ export function EmptyState({ icon, title, description, action }) {
 }
 
 export function Skeleton({ className = '' }) {
-  return <div className={`animate-pulse bg-slate-100 rounded-lg ${className}`} />;
+  return <div className={`animate-pulse bg-slate-200/80 rounded-lg ${className}`} />;
 }
 
 export function SkeletonCard() {

@@ -18,7 +18,21 @@ function SkeletonRow() {
 }
 
 /* ── Metric Card ── */
-function MetricCard({ icon, iconBg, iconColor, label, value, sub }) {
+function MetricCard({ icon, iconBg, iconColor, label, value, sub, loading }) {
+  if (loading) {
+    return (
+      <div className="bg-white p-4.5 rounded-xl border border-slate-200/60 shadow-sm flex flex-col justify-between h-[115px] animate-pulse">
+        <div className="flex justify-between items-center">
+          <div className="w-8 h-8 bg-slate-200/80 rounded-lg" />
+          <div className="h-2.5 w-20 bg-slate-200/80 rounded" />
+        </div>
+        <div className="mt-2 space-y-1.5">
+          <div className="h-6 w-14 bg-slate-200/80 rounded" />
+          <div className="h-2.5 w-24 bg-slate-200/80 rounded" />
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="bg-white p-4.5 rounded-xl border border-slate-200/60 shadow-sm flex flex-col justify-between h-[115px]">
       <div className="flex justify-between items-center">
@@ -81,23 +95,27 @@ export default function ReportsListPage() {
           icon={<FiBarChart2 className="w-4 h-4" />}
           iconBg="bg-blue-50" iconColor="text-[#2563EB]"
           label="Total Tests" value={totalTests} sub="Reports available"
+          loading={loading}
         />
         <MetricCard
           icon={<FiAward className="w-4 h-4" />}
           iconBg="bg-emerald-50" iconColor="text-emerald-600"
           label="Avg Pass Rate (per test)" value={safePct(avgPassRate)}
           sub="Unweighted mean"
+          loading={loading}
         />
         <MetricCard
           icon={<FiTrendingUp className="w-4 h-4" />}
           iconBg="bg-indigo-50" iconColor="text-indigo-600"
           label="Avg Score (per test)" value={avgScore.toFixed(1)}
           sub="Unweighted mean · raw marks"
+          loading={loading}
         />
         <MetricCard
           icon={<FiUsers className="w-4 h-4" />}
           iconBg="bg-amber-50" iconColor="text-amber-600"
           label="Total Completed" value={totalCompleted} sub="Across all tests"
+          loading={loading}
         />
       </div>
 

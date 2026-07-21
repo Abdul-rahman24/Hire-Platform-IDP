@@ -28,14 +28,21 @@ export default function Sidebar() {
     <div className="w-[260px] flex-shrink-0 h-full bg-white border-r border-slate-200/80 flex flex-col justify-between">
       <div>
         {/* Top Left Logo Header */}
-        <div className="h-[80px] flex items-center px-5 border-b border-slate-100">
+        <div className="h-[96px] flex items-center px-4 border-b border-slate-100 bg-white">
           <div className="flex items-center space-x-3">
             <img
               src="/idp-logo.png"
-              alt="IDP Logo"
-              className="h-14 w-auto max-w-[160px] object-contain flex-shrink-0"
+              alt="IDP Assess360 Logo"
+              className="h-[72px] w-[72px] object-contain flex-shrink-0"
             />
-            <span className="text-base font-bold text-slate-900 tracking-tight leading-tight">Exam Portal</span>
+            <div>
+              <span className="text-base font-extrabold text-[#0B4A99] tracking-tight leading-tight block">
+                IDP Assess360
+              </span>
+              <span className="text-[9px] font-bold text-slate-400 block tracking-wider uppercase mt-0.5">
+                Assessment Portal
+              </span>
+            </div>
           </div>
         </div>
 

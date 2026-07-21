@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import CustomSelect from './CustomSelect';
-import { SkeletonRow } from './tc/Shared';
+import { SkeletonRow, SkeletonCard } from './tc/Shared';
 
 export default function DashboardOverview({ sets, loading, onNavigateToSet, onCreateSet, onEditSet, onDeleteSet, onToggleArchiveSet }) {
   const [statusFilter, setStatusFilter] = useState('All');
@@ -33,67 +33,73 @@ export default function DashboardOverview({ sets, loading, onNavigateToSet, onCr
 
       {/* Metrics Row */}
       <div className="grid grid-cols-4 gap-4">
-        {/* Metric 1: Total Sets */}
-        <div className="bg-white p-4.5 rounded-2xl border border-slate-200/60 shadow-xs flex flex-col justify-between h-[115px]">
-          <div className="flex justify-between items-center">
-            <div className="w-8 h-8 bg-blue-50 text-[#0B4A99] rounded-xl flex items-center justify-center">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+        {loading ? (
+          Array(4).fill(0).map((_, i) => <SkeletonCard key={i} />)
+        ) : (
+          <>
+            {/* Metric 1: Total Sets */}
+            <div className="bg-white p-4.5 rounded-2xl border border-slate-200/60 shadow-xs flex flex-col justify-between h-[115px]">
+              <div className="flex justify-between items-center">
+                <div className="w-8 h-8 bg-blue-50 text-[#0B4A99] rounded-xl flex items-center justify-center">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
+                </div>
+                <span className="text-[10px] font-semibold text-slate-400">Total sets available</span>
+              </div>
+              <div className="mt-2">
+                <h3 className="text-xl font-bold text-slate-950 tracking-tight leading-none">{sets.length}</h3>
+                <p className="text-slate-400 text-[10px] font-medium mt-1">Total Sets</p>
+              </div>
             </div>
-            <span className="text-[10px] font-semibold text-slate-400">Total sets available</span>
-          </div>
-          <div className="mt-2">
-            <h3 className="text-xl font-bold text-slate-950 tracking-tight leading-none">{sets.length}</h3>
-            <p className="text-slate-400 text-[10px] font-medium mt-1">Total Sets</p>
-          </div>
-        </div>
-        
-        {/* Metric 2: Total Questions */}
-        <div className="bg-white p-4.5 rounded-2xl border border-slate-200/60 shadow-xs flex flex-col justify-between h-[115px]">
-          <div className="flex justify-between items-center">
-            <div className="w-8 h-8 bg-slate-50 text-slate-500 rounded-xl flex items-center justify-center">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+            
+            {/* Metric 2: Total Questions */}
+            <div className="bg-white p-4.5 rounded-2xl border border-slate-200/60 shadow-xs flex flex-col justify-between h-[115px]">
+              <div className="flex justify-between items-center">
+                <div className="w-8 h-8 bg-slate-50 text-slate-500 rounded-xl flex items-center justify-center">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                </div>
+                <span className="text-[10px] font-semibold text-slate-400">Across all sets</span>
+              </div>
+              <div className="mt-2">
+                <h3 className="text-xl font-bold text-slate-950 tracking-tight leading-none">
+                  {sets.reduce((acc, curr) => acc + (curr.questionsCount || 0), 0)}
+                </h3>
+                <p className="text-slate-400 text-[10px] font-medium mt-1">Total Questions</p>
+              </div>
             </div>
-            <span className="text-[10px] font-semibold text-slate-400">Across all sets</span>
-          </div>
-          <div className="mt-2">
-            <h3 className="text-xl font-bold text-slate-950 tracking-tight leading-none">
-              {sets.reduce((acc, curr) => acc + (curr.questionsCount || 0), 0)}
-            </h3>
-            <p className="text-slate-400 text-[10px] font-medium mt-1">Total Questions</p>
-          </div>
-        </div>
 
-        {/* Metric 3: Active Sets */}
-        <div className="bg-white p-4.5 rounded-2xl border border-slate-200/60 shadow-xs flex flex-col justify-between h-[115px]">
-          <div className="flex justify-between items-center">
-            <div className="w-8 h-8 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            {/* Metric 3: Active Sets */}
+            <div className="bg-white p-4.5 rounded-2xl border border-slate-200/60 shadow-xs flex flex-col justify-between h-[115px]">
+              <div className="flex justify-between items-center">
+                <div className="w-8 h-8 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                </div>
+                <span className="text-[10px] font-semibold text-slate-400">Ready for assessments</span>
+              </div>
+              <div className="mt-2">
+                <h3 className="text-xl font-bold text-slate-950 tracking-tight leading-none">
+                  {sets.filter(s => s.status === 'Active').length}
+                </h3>
+                <p className="text-slate-400 text-[10px] font-medium mt-1">Active Sets</p>
+              </div>
             </div>
-            <span className="text-[10px] font-semibold text-slate-400">Ready for assessments</span>
-          </div>
-          <div className="mt-2">
-            <h3 className="text-xl font-bold text-slate-950 tracking-tight leading-none">
-              {sets.filter(s => s.status === 'Active').length}
-            </h3>
-            <p className="text-slate-400 text-[10px] font-medium mt-1">Active Sets</p>
-          </div>
-        </div>
 
-        {/* Metric 4: Archived */}
-        <div className="bg-white p-4.5 rounded-2xl border border-slate-200/60 shadow-xs flex flex-col justify-between h-[115px]">
-          <div className="flex justify-between items-center">
-            <div className="w-8 h-8 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
+            {/* Metric 4: Archived */}
+            <div className="bg-white p-4.5 rounded-2xl border border-slate-200/60 shadow-xs flex flex-col justify-between h-[115px]">
+              <div className="flex justify-between items-center">
+                <div className="w-8 h-8 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
+                </div>
+                <span className="text-[10px] font-semibold text-slate-400">Archived sets</span>
+              </div>
+              <div className="mt-2">
+                <h3 className="text-xl font-bold text-slate-950 tracking-tight leading-none">
+                  {sets.filter(s => s.status === 'Archived').length}
+                </h3>
+                <p className="text-slate-400 text-[10px] font-medium mt-1">Archived</p>
+              </div>
             </div>
-            <span className="text-[10px] font-semibold text-slate-400">Archived sets</span>
-          </div>
-          <div className="mt-2">
-            <h3 className="text-xl font-bold text-slate-950 tracking-tight leading-none">
-              {sets.filter(s => s.status === 'Archived').length}
-            </h3>
-            <p className="text-slate-400 text-[10px] font-medium mt-1">Archived</p>
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
       {/* Main Table Container */}

@@ -35,7 +35,7 @@ export function Badge({ status, size = 'sm' }) {
 
 /* ─── Skeleton Loader ────────────────────────────────────────────── */
 export function Skeleton({ className = '' }) {
-  return <div className={`animate-pulse bg-slate-100 rounded-xl ${className}`} />;
+  return <div className={`animate-pulse bg-slate-200/80 rounded-xl ${className}`} />;
 }
 
 export function SkeletonRow() {
@@ -211,8 +211,34 @@ export function IconBtn({ icon, onClick, tooltip, variant = 'ghost', disabled })
   );
 }
 
+export function SkeletonCard() {
+  return (
+    <div className="bg-white p-4.5 rounded-2xl border border-slate-200/60 shadow-xs flex flex-col justify-between h-[115px] animate-pulse">
+      <div className="flex justify-between items-center">
+        <Skeleton className="w-8 h-8 rounded-xl" />
+        <Skeleton className="h-2.5 w-24" />
+      </div>
+      <div className="mt-2 space-y-1.5">
+        <Skeleton className="h-6 w-12" />
+        <Skeleton className="h-2.5 w-20" />
+      </div>
+    </div>
+  );
+}
+
 /* ─── Stats mini card ─────────────────────────────────────────────── */
-export function StatMini({ label, value, icon, color = 'blue' }) {
+export function StatMini({ label, value, icon, color = 'blue', loading = false }) {
+  if (loading) {
+    return (
+      <div className="bg-white rounded-2xl border border-slate-200/80 px-4 py-3.5 flex items-center space-x-3 shadow-xs animate-pulse">
+        <Skeleton className="w-9 h-9 rounded-xl flex-shrink-0" />
+        <div className="space-y-1.5 flex-1">
+          <Skeleton className="h-5 w-12" />
+          <Skeleton className="h-2.5 w-20" />
+        </div>
+      </div>
+    );
+  }
   const clr = {
     blue: 'bg-blue-50 text-[#0B4A99]',
     green: 'bg-green-50 text-green-600',

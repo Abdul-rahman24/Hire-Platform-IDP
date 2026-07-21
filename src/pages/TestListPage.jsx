@@ -185,9 +185,9 @@ export default function TestListPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
-        <StatMini icon={<FiFileText className="w-4 h-4" />} label="Total Tests" value={stats.total} color="blue" />
-        <StatMini icon={<FiLayers className="w-4 h-4" />} label="Question Sets" value={stats.sections} color="amber" />
-        <StatMini icon={<FiCheckCircle className="w-4 h-4" />} label="Total Questions" value={stats.questions} color="green" />
+        <StatMini icon={<FiFileText className="w-4 h-4" />} label="Total Tests" value={stats.total} color="blue" loading={loading} />
+        <StatMini icon={<FiLayers className="w-4 h-4" />} label="Question Sets" value={stats.sections} color="amber" loading={loading} />
+        <StatMini icon={<FiCheckCircle className="w-4 h-4" />} label="Total Questions" value={stats.questions} color="green" loading={loading} />
       </div>
 
       {/* Search */}
