@@ -7,13 +7,6 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-<<<<<<< HEAD
-.
-
-
-
-=======
->>>>>>> c81da1a (Added the Analytics)
 node_modules
 dist
 dist-ssr
@@ -29,13 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-<<<<<<< HEAD
 
 # Environment files
 .env
 .env.local
 .env.*.local
 !.env.example
-
-=======
->>>>>>> c81da1a (Added the Analytics)

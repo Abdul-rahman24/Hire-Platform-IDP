@@ -1,8 +1,4 @@
 // Mock data for Test Configuration module
-<<<<<<< HEAD
-=======
-// Simulates what the backend would return
->>>>>>> c81da1a (Added the Analytics)
 
 export const MOCK_TESTS = [
   {
@@ -251,7 +247,6 @@ export const MOCK_TESTS = [
   },
 ];
 
-<<<<<<< HEAD
 let memoryTestsList = [...MOCK_TESTS];
 
 export function getTestsStore() {
@@ -277,41 +272,3 @@ export function saveTest(testToSave) {
 }
 
 export default MOCK_TESTS;
-=======
-export function getTestsStore() {
-  try {
-    const stored = localStorage.getItem('testsStore');
-    if (stored) {
-      return JSON.parse(stored);
-    }
-  } catch {}
-  return MOCK_TESTS;
-}
-
-export function saveTestsStore(tests) {
-  try {
-    localStorage.setItem('testsStore', JSON.stringify(tests));
-  } catch {}
-}
-
-export function getTestById(id) {
-  const tests = getTestsStore();
-  return tests.find(t => t.testId === id);
-}
-
-export function saveTest(testToSave) {
-  const tests = getTestsStore();
-  const existingIdx = tests.findIndex(t => t.testId === testToSave.testId);
-  let updated;
-  if (existingIdx >= 0) {
-    updated = tests.map(t => t.testId === testToSave.testId ? testToSave : t);
-  } else {
-    updated = [testToSave, ...tests];
-  }
-  saveTestsStore(updated);
-  return updated;
-}
-
-export default MOCK_TESTS;
-
->>>>>>> c81da1a (Added the Analytics)
