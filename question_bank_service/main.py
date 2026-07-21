@@ -1,8 +1,8 @@
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from mangum import Mangum
-from app import schemas
-from app.repository import QuestionRepository
+from question_bank_service import schemas
+from question_bank_service.repository import QuestionRepository
 
 app = FastAPI(
     title="IDP Question Bank Microservice",
