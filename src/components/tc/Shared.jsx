@@ -41,7 +41,11 @@ export function Skeleton({ className = '' }) {
 export function SkeletonRow() {
   return (
     <tr>
+<<<<<<< HEAD
       <td className="px-5 py-3.5"><div className="flex items-center space-x-3"><Skeleton className="w-8 h-8 rounded-xl" /><div className="space-y-1.5"><Skeleton className="h-3 w-36" /><Skeleton className="h-2.5 w-24" /></div></div></td>
+=======
+      <td className="px-5 py-3.5"><div className="flex items-center space-x-3"><Skeleton className="w-8 h-8 rounded-[10px]" /><div className="space-y-1.5"><Skeleton className="h-3 w-36" /><Skeleton className="h-2.5 w-24" /></div></div></td>
+>>>>>>> c81da1a (Added the Analytics)
       <td className="px-5 py-3.5"><Skeleton className="h-3 w-16" /></td>
       <td className="px-5 py-3.5"><Skeleton className="h-3 w-16" /></td>
       <td className="px-5 py-3.5"><Skeleton className="h-3 w-8" /></td>
@@ -85,7 +89,11 @@ export function ConfirmDialog({ isOpen, title = 'Are you sure?', description, co
       >
         <div className="flex items-center mb-4">
           <div className={`w-9 h-9 rounded-xl flex items-center justify-center mr-3 flex-shrink-0 ${danger ? 'bg-red-50' : 'bg-blue-50'}`}>
+<<<<<<< HEAD
             <svg className={`w-4.5 h-4.5 ${danger ? 'text-red-500' : 'text-[#0B4A99]'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+=======
+            <svg className={`w-4.5 h-4.5 ${danger ? 'text-red-500' : 'text-blue-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+>>>>>>> c81da1a (Added the Analytics)
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </div>
@@ -95,10 +103,17 @@ export function ConfirmDialog({ isOpen, title = 'Are you sure?', description, co
           </div>
         </div>
         <div className="flex space-x-3">
+<<<<<<< HEAD
           <button onClick={onCancel} className="flex-1 px-4 py-2 border border-slate-200 text-slate-600 rounded-xl font-semibold text-xs hover:bg-slate-50 transition-colors">
             Cancel
           </button>
           <button onClick={onConfirm} className={`flex-1 px-4 py-2 ${danger ? 'bg-red-600 hover:bg-red-700' : 'bg-[#0B4A99] hover:bg-[#083A78]'} text-white rounded-xl font-semibold text-xs transition-colors`}>
+=======
+          <button onClick={onCancel} className="flex-1 px-4 py-2 border border-slate-200 text-slate-600 rounded-[10px] font-semibold text-xs hover:bg-slate-50 transition-colors">
+            Cancel
+          </button>
+          <button onClick={onConfirm} className={`flex-1 px-4 py-2 ${danger ? 'bg-red-600 hover:bg-red-700' : 'bg-[#2563EB] hover:bg-blue-700'} text-white rounded-[10px] font-semibold text-xs transition-colors`}>
+>>>>>>> c81da1a (Added the Analytics)
             {confirmLabel}
           </button>
         </div>
@@ -189,7 +204,11 @@ export function Field({ label, required, error, hint, children }) {
   );
 }
 
+<<<<<<< HEAD
 export const inputCls = 'w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1.5 focus:ring-[#0B4A99] focus:border-[#0B4A99] transition-all bg-white';
+=======
+export const inputCls = 'w-full border border-slate-200 rounded-[10px] px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB] transition-all bg-white';
+>>>>>>> c81da1a (Added the Analytics)
 export const selectCls = `${inputCls} appearance-none cursor-pointer`;
 
 /* ─── Icon button ────────────────────────────────────────────────── */
@@ -197,14 +216,22 @@ export function IconBtn({ icon, onClick, tooltip, variant = 'ghost', disabled })
   const v = {
     ghost: 'text-slate-400 hover:text-slate-700 hover:bg-slate-100',
     danger: 'text-slate-400 hover:text-red-600 hover:bg-red-50',
+<<<<<<< HEAD
     primary: 'text-slate-400 hover:text-[#0B4A99] hover:bg-blue-50',
+=======
+    primary: 'text-slate-400 hover:text-[#2563EB] hover:bg-blue-50',
+>>>>>>> c81da1a (Added the Analytics)
   };
   return (
     <button
       onClick={onClick}
       disabled={disabled}
       title={tooltip}
+<<<<<<< HEAD
       className={`w-8 h-8 flex items-center justify-center rounded-xl transition-all ${v[variant]} disabled:opacity-40`}
+=======
+      className={`w-8 h-8 flex items-center justify-center rounded-[10px] transition-all ${v[variant]} disabled:opacity-40`}
+>>>>>>> c81da1a (Added the Analytics)
     >
       {icon}
     </button>
@@ -214,14 +241,22 @@ export function IconBtn({ icon, onClick, tooltip, variant = 'ghost', disabled })
 /* ─── Stats mini card ─────────────────────────────────────────────── */
 export function StatMini({ label, value, icon, color = 'blue' }) {
   const clr = {
+<<<<<<< HEAD
     blue: 'bg-blue-50 text-[#0B4A99]',
+=======
+    blue: 'bg-blue-50 text-[#2563EB]',
+>>>>>>> c81da1a (Added the Analytics)
     green: 'bg-green-50 text-green-600',
     amber: 'bg-amber-50 text-amber-600',
     slate: 'bg-slate-100 text-slate-500',
     orange: 'bg-orange-50 text-orange-600',
   }[color];
   return (
+<<<<<<< HEAD
     <div className="bg-white rounded-2xl border border-slate-200/80 px-4 py-3.5 flex items-center space-x-3 shadow-xs">
+=======
+    <div className="bg-white rounded-[14px] border border-slate-200/80 px-4 py-3.5 flex items-center space-x-3 shadow-sm">
+>>>>>>> c81da1a (Added the Analytics)
       <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${clr}`}>{icon}</div>
       <div>
         <p className="text-xl font-bold text-slate-900 leading-none">{value}</p>
