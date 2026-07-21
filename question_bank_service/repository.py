@@ -2,8 +2,8 @@ from botocore.exceptions import ClientError
 
 from fastapi import HTTPException
 from boto3.dynamodb.conditions import Key
-from app.config import table
-from app import schemas
+from .config import table
+from question_bank_service import schemas
 
 class QuestionRepository:
     
