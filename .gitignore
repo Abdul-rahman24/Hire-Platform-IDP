@@ -1,3 +1,5 @@
 package/
 
 lambda_package.zip
+
+/__pycache__
