@@ -72,7 +72,7 @@ export default function ReportsListPage() {
     : 0;
 
   return (
-    <div className="max-w-[1100px] mx-auto">
+    <div className="w-full space-y-5">
       {/* ── Header ── */}
       <div className="flex justify-between items-center mb-6">
         <div>
@@ -82,7 +82,7 @@ export default function ReportsListPage() {
         <button
           onClick={refresh}
           disabled={loading}
-          className="bg-[#2563EB] text-white px-4 py-2 rounded-lg font-semibold text-xs hover:bg-[#1d4ed8] transition-all flex items-center shadow-sm disabled:opacity-50"
+          className="bg-[#0B4A99] text-white px-4 py-2 rounded-lg font-semibold text-xs hover:bg-[#083A78] transition-all flex items-center shadow-sm disabled:opacity-50"
         >
           <FiRefreshCw className={`w-3.5 h-3.5 mr-2 ${loading ? 'animate-spin' : ''}`} />
           Refresh
@@ -93,7 +93,7 @@ export default function ReportsListPage() {
       <div className="grid grid-cols-4 gap-4 mb-6">
         <MetricCard
           icon={<FiBarChart2 className="w-4 h-4" />}
-          iconBg="bg-blue-50" iconColor="text-[#2563EB]"
+          iconBg="bg-blue-50" iconColor="text-[#0B4A99]"
           label="Total Tests" value={totalTests} sub="Reports available"
           loading={loading}
         />
@@ -192,11 +192,11 @@ export default function ReportsListPage() {
               >
                 <td className="px-5 py-4">
                   <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#2563EB] flex items-center justify-center mr-3 flex-shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#0B4A99] flex items-center justify-center mr-3 flex-shrink-0">
                       <FiBarChart2 className="w-4 h-4" />
                     </div>
                     <div className="min-w-0">
-                      <h4 className="font-semibold text-slate-800 text-xs group-hover:text-[#2563EB] transition-colors truncate">
+                      <h4 className="font-semibold text-slate-800 text-xs group-hover:text-[#0B4A99] transition-colors truncate">
                         {report.testName || 'Unnamed Test'}
                       </h4>
                     </div>
