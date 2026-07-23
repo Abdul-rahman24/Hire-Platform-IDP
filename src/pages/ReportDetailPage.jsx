@@ -82,7 +82,7 @@ function CandidateDetail({ c }) {
 
   return (
     <tr>
-      <td colSpan="6" className="px-0 py-0">
+      <td colSpan="7" className="px-0 py-0">
         <div className="mx-5 my-3 bg-slate-50 rounded-xl border border-slate-200/60 overflow-hidden">
           {/* Header */}
           <div className="px-5 py-3 border-b border-slate-200/60 flex items-center justify-between">
@@ -252,28 +252,25 @@ export default function ReportDetailPage() {
       text: `Only ${safePct(completed, rawTotal).toFixed(1)}% of ${rawTotal} registered candidates completed — possible delivery or access issue.`,
     });
   }
-  if (rawTotal === 0 && completed > 0) {
-    anomalies.push({
-      key: 'no-registration-data',
-      icon: <FiInfo className="w-4 h-4" />,
-      text: `Registration count is unavailable (0 registered). Completion funnel uses ${completed} completed as the baseline.`,
-    });
-  }
 
   // Funnel bar width
   const completedPct = effectiveTotal > 0 ? (completed / effectiveTotal) * 100 : 0;
 
   return (
     <div className="w-full space-y-5">
+      {/* ── Back to Reports (Aligned above) ── */}
+      <div>
+        <button
+          onClick={() => navigate('/reports')}
+          className="flex items-center text-xs font-semibold text-slate-500 hover:text-[#0B4A99] transition-colors"
+        >
+          <FiArrowLeft className="w-3.5 h-3.5 mr-1.5" /> Back to Reports
+        </button>
+      </div>
+
       {/* ── Header ── */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center min-w-0">
-          <button
-            onClick={() => navigate('/reports')}
-            className="flex items-center text-xs font-semibold text-slate-500 hover:text-[#0B4A99] transition-colors mr-4 flex-shrink-0"
-          >
-            <FiArrowLeft className="w-3.5 h-3.5 mr-1.5" /> Back to Reports
-          </button>
           <div className="min-w-0">
             <h2 className="text-[22px] font-bold text-slate-900 tracking-tight truncate">
               {report.testName || 'Unnamed Test'}
@@ -281,10 +278,14 @@ export default function ReportDetailPage() {
             <div className="flex items-center space-x-3 mt-0.5">
               <p className="text-slate-400 text-[10px] font-mono truncate">{testId}</p>
               {totalMarks != null && (
-                <span className="text-[10px] text-slate-400 font-medium">Total Marks: <span className="font-semibold text-slate-600">{totalMarks}</span></span>
+                <span className="text-[10px] text-slate-400 font-medium">
+                  Total Marks: <span className="font-semibold text-slate-600">{totalMarks}</span>
+                </span>
               )}
               {durationMins != null && (
-                <span className="text-[10px] text-slate-400 font-medium">Duration: <span className="font-semibold text-slate-600">{durationMins} min</span></span>
+                <span className="text-[10px] text-slate-400 font-medium">
+                  Duration: <span className="font-semibold text-slate-600">{durationMins} min</span>
+                </span>
               )}
             </div>
           </div>
@@ -313,8 +314,8 @@ export default function ReportDetailPage() {
           icon={<FiCheckCircle className="w-4 h-4" />}
           iconBg="bg-blue-50" iconColor="text-[#0B4A99]"
           label="Completion Rate"
-          value={rawTotal > 0 ? `${completionRate.toFixed(1)}%` : `${completed} done`}
-          sub={rawTotal > 0 ? `${completed} of ${rawTotal} candidates` : 'No registration data'}
+          value={rawTotal > 0 ? `${completionRate.toFixed(1)}%` : '100%'}
+          sub={rawTotal > 0 ? `${completed} of ${rawTotal} candidates` : `${completed} completed candidates`}
         />
         <MetricCard
           icon={<FiAward className="w-4 h-4" />}
@@ -613,6 +614,7 @@ export default function ReportDetailPage() {
               <th className="px-5 py-3 w-8"></th>
               <th className="px-5 py-3">Candidate</th>
               <th className="px-5 py-3">Score</th>
+              <th className="px-5 py-3">Percentage</th>
               <th className="px-5 py-3">Status</th>
               <th className="px-5 py-3">Time</th>
               <th className="px-5 py-3">Warnings</th>
@@ -627,6 +629,7 @@ export default function ReportDetailPage() {
                     <td className="px-5 py-4"><div className="h-4 w-4 bg-slate-100 rounded" /></td>
                     <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-40" /></td>
                     <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-14" /></td>
+                    <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-12" /></td>
                     <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-16" /></td>
                     <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-14" /></td>
                     <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-8" /></td>
@@ -638,7 +641,7 @@ export default function ReportDetailPage() {
             {/* Empty state */}
             {!candidatesLoading && !candidatesError && candidates.length === 0 && (
               <tr>
-                <td colSpan="6" className="px-5 py-12 text-center">
+                <td colSpan="7" className="px-5 py-12 text-center">
                   <FiUser className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                   <p className="text-sm font-semibold text-slate-500">No candidate data yet</p>
                   <p className="text-xs text-slate-400 mt-1">Candidate results will appear here once submissions are received.</p>
@@ -683,7 +686,9 @@ export default function ReportDetailPage() {
                     <td className="px-5 py-4">
                       <span className="font-bold text-slate-800 text-xs">{safeNum(c.score)}</span>
                       <span className="text-[10px] text-slate-400 font-medium ml-0.5">/{safeNum(c.totalMarks)}</span>
-                      <span className="text-[10px] text-slate-400 ml-1">({safeNum(c.percentage)}%)</span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="font-bold text-slate-800 text-xs">{safeNum(c.percentage)}%</span>
                     </td>
                     <td className="px-5 py-4">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${statusBadge}`}>

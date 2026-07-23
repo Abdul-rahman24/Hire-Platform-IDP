@@ -72,7 +72,16 @@ export default function Sidebar() {
 
       {/* User Footer */}
       <div className="flex-shrink-0 border-t border-slate-100 p-3">
-        <div className="flex items-center p-2 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer">
+        <div
+          onClick={() => {
+            localStorage.removeItem('idp_admin_auth');
+            localStorage.removeItem('idp_access_token');
+            localStorage.removeItem('idp_id_token');
+            window.location.href = '/login';
+          }}
+          className="flex items-center p-2 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
+          title="Sign Out"
+        >
           <div className="w-8 h-8 rounded-xl bg-[#0B4A99] text-white flex items-center justify-center font-bold text-[11px] flex-shrink-0">
             AU
           </div>

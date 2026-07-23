@@ -207,7 +207,6 @@ export default function ReportsListPage() {
                 </td>
                 <td className="px-5 py-4">
                   <span className="font-bold text-slate-800 text-xs">{safeNum(report.completedCandidates)}</span>
-                  <span className="text-[10px] text-slate-400 font-medium ml-1">/ {safeNum(report.totalCandidates)}</span>
                 </td>
                 <td className="px-5 py-4">
                   <span className="font-bold text-slate-800 text-xs">{safeNum(report.averageScore)}</span>
