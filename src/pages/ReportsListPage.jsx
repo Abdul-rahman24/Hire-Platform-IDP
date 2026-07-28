@@ -90,7 +90,7 @@ export default function ReportsListPage() {
       </div>
 
       {/* ── Metric Cards ── */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <MetricCard
           icon={<FiBarChart2 className="w-4 h-4" />}
           iconBg="bg-blue-50" iconColor="text-[#0B4A99]"
@@ -151,91 +151,93 @@ export default function ReportsListPage() {
           </div>
         </div>
 
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-slate-100 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/20">
-              <th className="px-5 py-3 w-[35%]">Test Name</th>
-              <th className="px-5 py-3">Test ID</th>
-              <th className="px-5 py-3">Completed</th>
-              <th className="px-5 py-3">Avg Score</th>
-              <th className="px-5 py-3">Pass Rate</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {/* Loading skeleton */}
-            {loading && !list.length && (
-              <>
-                <SkeletonRow />
-                <SkeletonRow />
-                <SkeletonRow />
-                <SkeletonRow />
-              </>
-            )}
-
-            {/* Empty state */}
-            {!loading && !error && list.length === 0 && (
-              <tr>
-                <td colSpan="5" className="px-5 py-16 text-center">
-                  <FiInbox className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                  <p className="text-sm font-semibold text-slate-500">No test reports yet</p>
-                  <p className="text-xs text-slate-400 mt-1">Reports will appear here once tests have been conducted.</p>
-                </td>
+        <div className="overflow-x-auto overflow-y-hidden">
+          <table className="w-full min-w-[700px] lg:min-w-full">
+            <thead>
+              <tr className="border-b border-slate-100 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/20">
+                <th className="px-5 py-3 w-[35%]">Test Name</th>
+                <th className="px-5 py-3">Test ID</th>
+                <th className="px-5 py-3">Completed</th>
+                <th className="px-5 py-3">Avg Score</th>
+                <th className="px-5 py-3">Pass Rate</th>
               </tr>
-            )}
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {/* Loading skeleton */}
+              {loading && !list.length && (
+                <>
+                  <SkeletonRow />
+                  <SkeletonRow />
+                  <SkeletonRow />
+                  <SkeletonRow />
+                </>
+              )}
 
-            {/* Data rows */}
-            {list.map((report) => (
-              <tr
-                key={report.testId}
-                onClick={() => navigate(`/reports/${report.testId}`)}
-                className="hover:bg-slate-50/50 group transition-colors cursor-pointer"
-              >
-                <td className="px-5 py-4">
-                  <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#0B4A99] flex items-center justify-center mr-3 flex-shrink-0">
-                      <FiBarChart2 className="w-4 h-4" />
+              {/* Empty state */}
+              {!loading && !error && list.length === 0 && (
+                <tr>
+                  <td colSpan="5" className="px-5 py-16 text-center">
+                    <FiInbox className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                    <p className="text-sm font-semibold text-slate-500">No test reports yet</p>
+                    <p className="text-xs text-slate-400 mt-1">Reports will appear here once tests have been conducted.</p>
+                  </td>
+                </tr>
+              )}
+
+              {/* Data rows */}
+              {list.map((report) => (
+                <tr
+                  key={report.testId}
+                  onClick={() => navigate(`/reports/${report.testId}`)}
+                  className="hover:bg-slate-50/50 group transition-colors cursor-pointer"
+                >
+                  <td className="px-5 py-4">
+                    <div className="flex items-center">
+                      <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#0B4A99] flex items-center justify-center mr-3 flex-shrink-0">
+                        <FiBarChart2 className="w-4 h-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="font-semibold text-slate-800 text-xs group-hover:text-[#0B4A99] transition-colors truncate">
+                          {report.testName || 'Unnamed Test'}
+                        </h4>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <h4 className="font-semibold text-slate-800 text-xs group-hover:text-[#0B4A99] transition-colors truncate">
-                        {report.testName || 'Unnamed Test'}
-                      </h4>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-5 py-4">
-                  <span className="text-[10px] text-slate-400 font-mono">{report.testId}</span>
-                </td>
-                <td className="px-5 py-4">
-                  <span className="font-bold text-slate-800 text-xs">{safeNum(report.completedCandidates)}</span>
-                </td>
-                <td className="px-5 py-4">
-                  <span className="font-bold text-slate-800 text-xs">{safeNum(report.averageScore)}</span>
-                </td>
-                <td className="px-5 py-4">
-                  <div className="flex items-center">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                      safeNum(report.passPercentage) >= 70
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                        : safeNum(report.passPercentage) >= 40
-                        ? 'bg-amber-50 text-amber-700 border-amber-100'
-                        : 'bg-red-50 text-red-700 border-red-100'
-                    }`}>
-                      <span className={`w-1 h-1 rounded-full mr-1.5 ${
+                  </td>
+                  <td className="px-5 py-4">
+                    <span className="text-[10px] text-slate-400 font-mono">{report.testId}</span>
+                  </td>
+                  <td className="px-5 py-4">
+                    <span className="font-bold text-slate-800 text-xs">{safeNum(report.completedCandidates)}</span>
+                  </td>
+                  <td className="px-5 py-4">
+                    <span className="font-bold text-slate-800 text-xs">{safeNum(report.averageScore)}</span>
+                  </td>
+                  <td className="px-5 py-4">
+                    <div className="flex items-center">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
                         safeNum(report.passPercentage) >= 70
-                          ? 'bg-emerald-500'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
                           : safeNum(report.passPercentage) >= 40
-                          ? 'bg-amber-500'
-                          : 'bg-red-500'
-                      }`} />
-                      {safePct(report.passPercentage)}
-                    </span>
-                    <FiArrowRight className="w-3.5 h-3.5 text-slate-300 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                          ? 'bg-amber-50 text-amber-700 border-amber-100'
+                          : 'bg-red-50 text-red-700 border-red-100'
+                      }`}>
+                        <span className={`w-1 h-1 rounded-full mr-1.5 ${
+                          safeNum(report.passPercentage) >= 70
+                            ? 'bg-emerald-500'
+                            : safeNum(report.passPercentage) >= 40
+                            ? 'bg-amber-500'
+                            : 'bg-red-500'
+                        }`} />
+                        {safePct(report.passPercentage)}
+                      </span>
+                      <FiArrowRight className="w-3.5 h-3.5 text-slate-300 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

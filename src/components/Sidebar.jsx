@@ -20,26 +20,26 @@ const NAV_ITEMS = [
   },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ onNavItemClick }) {
   const location = useLocation();
   const isActive = (path) => location.pathname.startsWith(path);
 
   return (
     <div className="w-[260px] flex-shrink-0 h-full bg-white border-r border-slate-200/80 flex flex-col justify-between">
       <div>
-        {/* Top Left Logo Header */}
-        <div className="h-[96px] flex items-center px-4 border-b border-slate-100 bg-white">
-          <div className="flex items-center space-x-3">
+        {/* Top Left Logo Header (with padding for close button on mobile) */}
+        <div className="h-[96px] flex items-center pl-4 pr-12 lg:pr-4 border-b border-slate-100 bg-white">
+          <div className="flex items-center space-x-2">
             <img
               src="/idp-logo.png"
               alt="IDP Assess360 Logo"
-              className="h-[72px] w-[72px] object-contain flex-shrink-0"
+              className="h-[60px] w-[60px] object-contain flex-shrink-0"
             />
-            <div>
-              <span className="text-base font-extrabold text-[#0B4A99] tracking-tight leading-tight block">
+            <div className="min-w-0">
+              <span className="text-sm font-extrabold text-[#0B4A99] tracking-tight leading-tight block truncate">
                 IDP Assess360
               </span>
-              <span className="text-[9px] font-bold text-slate-400 block tracking-wider uppercase mt-0.5">
+              <span className="text-[9px] font-bold text-slate-400 block tracking-wider uppercase mt-0.5 truncate">
                 Assessment Portal
               </span>
             </div>
@@ -55,6 +55,7 @@ export default function Sidebar() {
               <NavLink
                 key={item.path}
                 to={item.path}
+                onClick={onNavItemClick}
                 className={`flex items-center px-3.5 py-2.5 rounded-xl transition-all text-xs font-semibold ${
                   active
                     ? 'bg-blue-50 text-[#0B4A99] font-bold'

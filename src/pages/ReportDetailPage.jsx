@@ -80,9 +80,22 @@ function CandidateDetail({ c }) {
     ? 'bg-red-50 text-red-700 border-red-200'
     : 'bg-slate-100 text-slate-600 border-slate-200';
 
+  const proctorStatus = c.proctoringDetails?.status || '';
+  const isSuccess = proctorStatus.toLowerCase().includes('success');
+  const isProgress = proctorStatus.toLowerCase().includes('progress');
+  const isTerminated = proctorStatus.toLowerCase().includes('term');
+
+  const proctorStyles = isSuccess
+    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+    : isProgress
+    ? 'bg-blue-50 text-blue-750 border-blue-200'
+    : isTerminated
+    ? 'bg-rose-50 text-rose-750 border-rose-200'
+    : 'bg-slate-100 text-slate-600 border-slate-200';
+
   return (
     <tr>
-      <td colSpan="7" className="px-0 py-0">
+      <td colSpan="8" className="px-0 py-0">
         <div className="mx-5 my-3 bg-slate-50 rounded-xl border border-slate-200/60 overflow-hidden">
           {/* Header */}
           <div className="px-5 py-3 border-b border-slate-200/60 flex items-center justify-between">
@@ -95,50 +108,62 @@ function CandidateDetail({ c }) {
                 <p className="text-[10px] text-slate-400">{c.mailId}</p>
               </div>
             </div>
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${statusStyles}`}>
-              {status}
-            </span>
+            <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+              {proctorStatus && (
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase ${proctorStyles}`}>
+                  <span className={`w-1 h-1 rounded-full mr-1.5 ${
+                    isSuccess ? 'bg-emerald-500' : isProgress ? 'bg-blue-500' : isTerminated ? 'bg-rose-500' : 'bg-slate-400'
+                  }`} />
+                  Proctoring: {proctorStatus.toUpperCase().includes('PROGRESS') ? 'PROGRESS' : proctorStatus.toUpperCase()}
+                </span>
+              )}
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${statusStyles}`}>
+                {status}
+              </span>
+            </div>
           </div>
 
-          {/* Stats Grid */}
-          <div className="grid grid-cols-6 divide-x divide-slate-200/60">
-            <div className="px-4 py-3 text-center">
+          {/* Stats Grid - Responsive grid layout */}
+          <div className="grid grid-cols-2 md:grid-cols-6 bg-white border-y border-slate-200/40">
+            <div className="px-4 py-3 text-center border-r border-b md:border-b-0 border-slate-200/60">
               <p className="text-base font-bold text-slate-900">{safeNum(c.score)}<span className="text-xs text-slate-400 font-medium">/{safeNum(c.totalMarks)}</span></p>
               <p className="text-[10px] text-slate-400 font-medium mt-0.5">Score ({safeNum(c.percentage)}%)</p>
             </div>
-            <div className="px-4 py-3 text-center">
+            <div className="px-4 py-3 text-center md:border-r border-b md:border-b-0 border-slate-200/60">
               <p className="text-base font-bold text-emerald-600">{safeNum(c.correctAnswers)}</p>
               <p className="text-[10px] text-slate-400 font-medium mt-0.5">Correct</p>
             </div>
-            <div className="px-4 py-3 text-center">
+            <div className="px-4 py-3 text-center border-r border-b md:border-b-0 border-slate-200/60">
               <p className="text-base font-bold text-red-500">{safeNum(c.wrongAnswers)}</p>
               <p className="text-[10px] text-slate-400 font-medium mt-0.5">Wrong</p>
             </div>
-            <div className="px-4 py-3 text-center">
+            <div className="px-4 py-3 text-center md:border-r border-b md:border-b-0 border-slate-200/60">
               <p className="text-base font-bold text-slate-400">{safeNum(c.unanswered)}</p>
               <p className="text-[10px] text-slate-400 font-medium mt-0.5">Unanswered</p>
             </div>
-            <div className="px-4 py-3 text-center">
+            <div className="px-4 py-3 text-center border-r border-slate-200/60">
               <p className="text-base font-bold text-amber-600">{safeNum(c.proctoringDetails?.warningCount)}</p>
               <p className="text-[10px] text-slate-400 font-medium mt-0.5">Warnings</p>
             </div>
-            <div className="px-4 py-3 text-center">
+            <div className="px-4 py-3 text-center flex flex-col justify-center">
               <p className="text-base font-bold text-slate-700">{fmtTime(c.timeTaken)}</p>
               <p className="text-[10px] text-slate-400 font-medium mt-0.5">Time Taken</p>
             </div>
           </div>
 
           {/* Footer */}
-          <div className="px-5 py-2.5 border-t border-slate-200/60 flex items-center space-x-5 text-[10px] text-slate-400 font-medium">
-            {c.proctoringDetails?.startedAt && (
-              <span>Started: <span className="text-slate-600 font-semibold">{new Date(c.proctoringDetails.startedAt).toLocaleString()}</span></span>
-            )}
-            {c.proctoringDetails?.endedAt && (
-              <span>Ended: <span className="text-slate-600 font-semibold">{new Date(c.proctoringDetails.endedAt).toLocaleString()}</span></span>
-            )}
-            {c.submittedAt && (
-              <span>Submitted: <span className="text-slate-600 font-semibold">{new Date(c.submittedAt).toLocaleString()}</span></span>
-            )}
+          <div className="px-5 py-2.5 border-t border-slate-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-[10px] text-slate-400 font-medium bg-slate-50/50">
+            <div className="flex items-center space-x-5 flex-wrap gap-y-1">
+              {c.proctoringDetails?.startedAt && (
+                <span>Started: <span className="text-slate-600 font-semibold">{new Date(c.proctoringDetails.startedAt).toLocaleString()}</span></span>
+              )}
+              {c.proctoringDetails?.endedAt && (
+                <span>Ended: <span className="text-slate-600 font-semibold">{new Date(c.proctoringDetails.endedAt).toLocaleString()}</span></span>
+              )}
+              {c.submittedAt && (
+                <span>Submitted: <span className="text-slate-600 font-semibold">{new Date(c.submittedAt).toLocaleString()}</span></span>
+              )}
+            </div>
           </div>
         </div>
       </td>
@@ -169,7 +194,7 @@ export default function ReportDetailPage() {
         <div className="flex items-center mb-6">
           <div className="h-5 w-32 bg-slate-100 rounded-md animate-pulse" />
         </div>
-        <div className="grid grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
           {[...Array(5)].map((_, i) => (
             <div key={i} className="bg-white p-4.5 rounded-xl border border-slate-200/60 shadow-sm h-[115px] animate-pulse">
               <div className="w-8 h-8 bg-slate-100 rounded-lg mb-4" />
@@ -309,7 +334,7 @@ export default function ReportDetailPage() {
         ))}
 
       {/* ── Summary Cards ── */}
-      <div className="grid grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
         <MetricCard
           icon={<FiCheckCircle className="w-4 h-4" />}
           iconBg="bg-blue-50" iconColor="text-[#0B4A99]"
@@ -344,7 +369,7 @@ export default function ReportDetailPage() {
       </div>
 
       {/* ── Charts Row ── */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
 
         {/* ── Pass / Fail Donut Chart ── */}
         <div className="bg-white rounded-xl border border-slate-200/70 shadow-sm p-6">
@@ -363,7 +388,7 @@ export default function ReportDetailPage() {
             let cumulative = 0;
 
             return (
-              <div className="flex items-center justify-center space-x-8">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
                 {/* Donut */}
                 <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
                   <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
@@ -608,111 +633,137 @@ export default function ReportDetailPage() {
           </div>
         )}
 
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-slate-100 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/20">
-              <th className="px-5 py-3 w-8"></th>
-              <th className="px-5 py-3">Candidate</th>
-              <th className="px-5 py-3">Score</th>
-              <th className="px-5 py-3">Percentage</th>
-              <th className="px-5 py-3">Status</th>
-              <th className="px-5 py-3">Time</th>
-              <th className="px-5 py-3">Warnings</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {/* Loading skeleton */}
-            {candidatesLoading && candidates.length === 0 && (
-              <>
-                {[...Array(3)].map((_, i) => (
-                  <tr key={i} className="animate-pulse">
-                    <td className="px-5 py-4"><div className="h-4 w-4 bg-slate-100 rounded" /></td>
-                    <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-40" /></td>
-                    <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-14" /></td>
-                    <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-12" /></td>
-                    <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-16" /></td>
-                    <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-14" /></td>
-                    <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-8" /></td>
-                  </tr>
-                ))}
-              </>
-            )}
-
-            {/* Empty state */}
-            {!candidatesLoading && !candidatesError && candidates.length === 0 && (
-              <tr>
-                <td colSpan="7" className="px-5 py-12 text-center">
-                  <FiUser className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                  <p className="text-sm font-semibold text-slate-500">No candidate data yet</p>
-                  <p className="text-xs text-slate-400 mt-1">Candidate results will appear here once submissions are received.</p>
-                </td>
+        <div className="overflow-x-auto overflow-y-hidden">
+          <table className="w-full min-w-[850px] lg:min-w-full">
+            <thead>
+              <tr className="border-b border-slate-100 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/20">
+                <th className="px-5 py-3 w-8"></th>
+                <th className="px-5 py-3">Candidate</th>
+                <th className="px-5 py-3">Score</th>
+                <th className="px-5 py-3">Percentage</th>
+                <th className="px-5 py-3">Status</th>
+                <th className="px-5 py-3">Time</th>
+                <th className="px-5 py-3">Warnings</th>
+                <th className="px-5 py-3">Proctoring Status</th>
               </tr>
-            )}
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {/* Loading skeleton */}
+              {candidatesLoading && candidates.length === 0 && (
+                <>
+                  {[...Array(3)].map((_, i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="px-5 py-4"><div className="h-4 w-4 bg-slate-100 rounded" /></td>
+                      <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-40" /></td>
+                      <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-14" /></td>
+                      <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-12" /></td>
+                      <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-16" /></td>
+                      <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-14" /></td>
+                      <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-8" /></td>
+                      <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-16" /></td>
+                    </tr>
+                  ))}
+                </>
+              )}
 
-            {/* Data rows */}
-            {candidates.map((c) => {
-              const isExpanded = expandedMail === c.mailId;
-              const status = c.status || 'UNKNOWN';
-              const statusBadge = status === 'PASSED'
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                : status === 'FAILED'
-                ? 'bg-red-50 text-red-700 border-red-100'
-                : 'bg-slate-100 text-slate-600 border-slate-200';
+              {/* Empty state */}
+              {!candidatesLoading && !candidatesError && candidates.length === 0 && (
+                <tr>
+                  <td colSpan="8" className="px-5 py-12 text-center">
+                    <FiUser className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                    <p className="text-sm font-semibold text-slate-500">No candidate data yet</p>
+                    <p className="text-xs text-slate-400 mt-1">Candidate results will appear here once submissions are received.</p>
+                  </td>
+                </tr>
+              )}
 
-              return (
-                <React.Fragment key={c.mailId}>
-                  <tr
-                    onClick={() => toggleExpand(c.mailId)}
-                    className="hover:bg-slate-50/50 group transition-colors cursor-pointer"
-                  >
-                    <td className="px-5 py-4 w-8">
-                      {isExpanded
-                        ? <FiChevronUp className="w-3.5 h-3.5 text-[#0B4A99]" />
-                        : <FiChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600" />}
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="flex items-center">
-                        <div className="w-7 h-7 rounded-lg bg-blue-50 text-[#0B4A99] flex items-center justify-center mr-2.5 flex-shrink-0">
-                          <FiMail className="w-3 h-3" />
+              {/* Data rows */}
+              {candidates.map((c) => {
+                const isExpanded = expandedMail === c.mailId;
+                const status = c.status || 'UNKNOWN';
+                const statusBadge = status === 'PASSED'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                  : status === 'FAILED'
+                  ? 'bg-red-50 text-red-700 border-red-100'
+                  : 'bg-slate-100 text-slate-600 border-slate-200';
+
+                return (
+                  <React.Fragment key={c.mailId}>
+                    <tr
+                      onClick={() => toggleExpand(c.mailId)}
+                      className="hover:bg-slate-50/50 group transition-colors cursor-pointer"
+                    >
+                      <td className="px-5 py-4 w-8">
+                        {isExpanded
+                          ? <FiChevronUp className="w-3.5 h-3.5 text-[#0B4A99]" />
+                          : <FiChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600" />}
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center">
+                          <div className="w-7 h-7 rounded-lg bg-blue-50 text-[#0B4A99] flex items-center justify-center mr-2.5 flex-shrink-0">
+                            <FiMail className="w-3 h-3" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-slate-800 text-xs truncate group-hover:text-[#0B4A99] transition-colors">
+                              {c.candidateName || 'Unknown'}
+                            </p>
+                            <p className="text-[10px] text-slate-400 truncate">{c.mailId}</p>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <p className="font-semibold text-slate-800 text-xs truncate group-hover:text-[#0B4A99] transition-colors">
-                            {c.candidateName || 'Unknown'}
-                          </p>
-                          <p className="text-[10px] text-slate-400 truncate">{c.mailId}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className="font-bold text-slate-800 text-xs">{safeNum(c.score)}</span>
-                      <span className="text-[10px] text-slate-400 font-medium ml-0.5">/{safeNum(c.totalMarks)}</span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className="font-bold text-slate-800 text-xs">{safeNum(c.percentage)}%</span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${statusBadge}`}>
-                        <span className={`w-1 h-1 rounded-full mr-1.5 ${
-                          status === 'PASSED' ? 'bg-emerald-500' : status === 'FAILED' ? 'bg-red-500' : 'bg-slate-400'
-                        }`} />
-                        {status}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className="text-xs text-slate-600 font-medium">{fmtTime(c.timeTaken)}</span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className={`text-xs font-medium ${safeNum(c.proctoringDetails?.warningCount) > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
-                        {safeNum(c.proctoringDetails?.warningCount)}
-                      </span>
-                    </td>
-                  </tr>
-                  {isExpanded && <CandidateDetail c={c} />}
-                </React.Fragment>
-              );
-            })}
-          </tbody>
-        </table>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className="font-bold text-slate-800 text-xs">{safeNum(c.score)}</span>
+                        <span className="text-[10px] text-slate-400 font-medium ml-0.5">/{safeNum(c.totalMarks)}</span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className="font-bold text-slate-800 text-xs">{safeNum(c.percentage)}%</span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${statusBadge}`}>
+                          <span className={`w-1 h-1 rounded-full mr-1.5 ${
+                            status === 'PASSED' ? 'bg-emerald-500' : status === 'FAILED' ? 'bg-red-500' : 'bg-slate-400'
+                          }`} />
+                          {status}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className="text-xs text-slate-600 font-medium">{fmtTime(c.timeTaken)}</span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className={`text-xs font-semibold ${safeNum(c.proctoringDetails?.warningCount) > 0 ? 'text-amber-600' : 'text-slate-500'}`}>
+                          {safeNum(c.proctoringDetails?.warningCount)}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        {c.proctoringDetails?.status ? (
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                            c.proctoringDetails.status.toLowerCase().includes('success') ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                            c.proctoringDetails.status.toLowerCase().includes('progress') ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                            c.proctoringDetails.status.toLowerCase().includes('term') ? 'bg-rose-50 text-rose-700 border-rose-100 animate-pulse' :
+                            'bg-slate-50 text-slate-600 border-slate-200'
+                          }`}>
+                            <span className={`w-1 h-1 rounded-full mr-1.5 ${
+                              c.proctoringDetails.status.toLowerCase().includes('success') ? 'bg-emerald-500' :
+                              c.proctoringDetails.status.toLowerCase().includes('progress') ? 'bg-blue-500' :
+                              c.proctoringDetails.status.toLowerCase().includes('term') ? 'bg-red-500' :
+                              'bg-slate-400'
+                            }`} />
+                            {c.proctoringDetails.status.toUpperCase().includes('PROGRESS')
+                               ? 'PROGRESS'
+                               : c.proctoringDetails.status.toUpperCase()}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-xs">-</span>
+                        )}
+                      </td>
+                    </tr>
+                    {isExpanded && <CandidateDetail c={c} />}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

@@ -317,7 +317,10 @@ export default function AddQuestionModal({ isOpen, onClose, onSave, initialData,
                 type="number"
                 min={1}
                 value={marks}
-                onChange={(e) => setMarks(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setMarks(val === '' ? '' : parseInt(val, 10));
+                }}
                 placeholder="1"
                 disabled={loading}
                 className={`w-full border rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none transition-all shadow-sm ${

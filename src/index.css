@@ -5,4 +5,28 @@
   body {
     @apply bg-background text-slate-800 font-sans;
   }
+
+  /* Custom Premium Theme Scrollbar */
+  .overflow-x-auto, .overflow-y-auto {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+
+  .overflow-x-auto::-webkit-scrollbar, .overflow-y-auto::-webkit-scrollbar {
+    height: 5px;
+    width: 6px;
+  }
+
+  .overflow-x-auto::-webkit-scrollbar-track, .overflow-y-auto::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .overflow-x-auto::-webkit-scrollbar-thumb, .overflow-y-auto::-webkit-scrollbar-thumb {
+    background: #cbd5e1; /* slate-300 */
+    border-radius: 9999px;
+  }
+
+  .overflow-x-auto::-webkit-scrollbar-thumb:hover, .overflow-y-auto::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8; /* slate-400 */
+  }
 }

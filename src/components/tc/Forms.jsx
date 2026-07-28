@@ -9,8 +9,8 @@ export function CreateTestDrawer({ isOpen, onClose, onSave, initial, loading }) 
   const toast = useToast();
   const [form, setForm] = useState({
     title: '',
-    durationMinutes: 90,
-    totalMarks: 100,
+    durationMinutes: '',
+    totalMarks: '',
     questionSetId: '',
   });
   const [questionSets, setQuestionSets] = useState([]);
@@ -22,14 +22,14 @@ export function CreateTestDrawer({ isOpen, onClose, onSave, initial, loading }) 
       setForm(initial
         ? {
             title: initial.title || '',
-            durationMinutes: initial.durationMinutes || 90,
-            totalMarks: initial.totalMarks || 100,
+            durationMinutes: initial.durationMinutes || '',
+            totalMarks: initial.totalMarks || '',
             questionSetId: initial.questionSetId || '',
           }
         : {
             title: '',
-            durationMinutes: 90,
-            totalMarks: 100,
+            durationMinutes: '',
+            totalMarks: '',
             questionSetId: '',
           }
       );
@@ -100,8 +100,9 @@ export function CreateTestDrawer({ isOpen, onClose, onSave, initial, loading }) 
               type="number"
               min={1}
               value={form.durationMinutes}
-              onChange={e => set('durationMinutes', +e.target.value)}
+              onChange={e => set('durationMinutes', e.target.value === '' ? '' : parseInt(e.target.value, 10))}
               disabled={loading}
+              placeholder="e.g. 90"
               className={inputCls}
             />
           </Field>
@@ -111,8 +112,9 @@ export function CreateTestDrawer({ isOpen, onClose, onSave, initial, loading }) 
               type="number"
               min={1}
               value={form.totalMarks}
-              onChange={e => set('totalMarks', +e.target.value)}
+              onChange={e => set('totalMarks', e.target.value === '' ? '' : parseInt(e.target.value, 10))}
               disabled={loading}
+              placeholder="e.g. 100"
               className={inputCls}
             />
           </Field>
@@ -193,7 +195,7 @@ export function CreateSectionModal({
   const [loadingSets, setLoadingSets] = useState(false);
   const [form, setForm] = useState({
     title: '',
-    durationMinutes: 30,
+    durationMinutes: '',
     questionSetId: '',
   });
   const [errors, setErrors] = useState({});
@@ -203,12 +205,12 @@ export function CreateSectionModal({
       setForm(initial
         ? {
             title: initial.title || '',
-            durationMinutes: initial.durationMinutes || 30,
+            durationMinutes: initial.durationMinutes || '',
             questionSetId: initial.questionSetId || '',
           }
         : {
             title: '',
-            durationMinutes: 30,
+            durationMinutes: '',
             questionSetId: '',
           }
       );
@@ -278,7 +280,8 @@ export function CreateSectionModal({
               type="number"
               min={1}
               value={form.durationMinutes}
-              onChange={e => set('durationMinutes', +e.target.value)}
+              onChange={e => set('durationMinutes', e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+              placeholder="e.g. 30"
               className={inputCls}
             />
           </Field>

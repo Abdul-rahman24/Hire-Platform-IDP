@@ -62,7 +62,7 @@ function SectionCard({ section, onEdit, onDelete, expanded, onToggle }) {
 }
 
 function SectionModal({ isOpen, onClose, onSave, initial }) {
-  const [form, setForm] = useState(initial || { name: '', duration: 20, questionSetName: '', questionCount: 10, difficulty: 'Medium', status: 'Active', displayOrder: 1, instructions: '' });
+  const [form, setForm] = useState(initial || { name: '', duration: '', questionSetName: '', questionCount: '', difficulty: 'Medium', status: 'Active', displayOrder: '', instructions: '' });
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
   return (
@@ -75,11 +75,11 @@ function SectionModal({ isOpen, onClose, onSave, initial }) {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Duration (min)</label>
-            <input type="number" min={5} value={form.duration} onChange={e => set('duration', Number(e.target.value))} className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1D5DB8]/30 text-slate-800" />
+            <input type="number" min={5} value={form.duration} placeholder="e.g. 20" onChange={e => set('duration', e.target.value === '' ? '' : parseInt(e.target.value, 10))} className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1D5DB8]/30 text-slate-800" />
           </div>
           <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Question Count</label>
-            <input type="number" min={1} value={form.questionCount} onChange={e => set('questionCount', Number(e.target.value))} className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1D5DB8]/30 text-slate-800" />
+            <input type="number" min={1} value={form.questionCount} placeholder="e.g. 10" onChange={e => set('questionCount', e.target.value === '' ? '' : parseInt(e.target.value, 10))} className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1D5DB8]/30 text-slate-800" />
           </div>
         </div>
         <div>
@@ -96,7 +96,7 @@ function SectionModal({ isOpen, onClose, onSave, initial }) {
         </div>
         <div>
           <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Display Order</label>
-          <input type="number" min={1} value={form.displayOrder} onChange={e => set('displayOrder', Number(e.target.value))} className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1D5DB8]/30 text-slate-800" />
+          <input type="number" min={1} value={form.displayOrder} placeholder="e.g. 1" onChange={e => set('displayOrder', e.target.value === '' ? '' : parseInt(e.target.value, 10))} className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1D5DB8]/30 text-slate-800" />
         </div>
         <div>
           <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Instructions</label>

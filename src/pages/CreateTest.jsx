@@ -50,11 +50,11 @@ function Step1({ data, onChange }) {
         <div className="grid grid-cols-3 gap-4">
           <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Duration (min)</label>
-            <input type="number" min={10} value={data.duration} onChange={e => onChange('duration', Number(e.target.value))} className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1D5DB8]/30 focus:border-[#1D5DB8] text-slate-800" />
+            <input type="number" min={10} value={data.duration} placeholder="e.g. 60" onChange={e => onChange('duration', e.target.value === '' ? '' : parseInt(e.target.value, 10))} className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1D5DB8]/30 focus:border-[#1D5DB8] text-slate-800" />
           </div>
           <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Passing Marks (%)</label>
-            <input type="number" min={0} max={100} value={data.passingMarks} onChange={e => onChange('passingMarks', Number(e.target.value))} className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1D5DB8]/30 focus:border-[#1D5DB8] text-slate-800" />
+            <input type="number" min={0} max={100} value={data.passingMarks} placeholder="e.g. 60" onChange={e => onChange('passingMarks', e.target.value === '' ? '' : parseInt(e.target.value, 10))} className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1D5DB8]/30 focus:border-[#1D5DB8] text-slate-800" />
           </div>
           <div>
             <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Negative Marks</label>
@@ -251,7 +251,7 @@ function Step5Publish({ data, onSave }) {
   );
 }
 
-const DEFAULT_DATA = { name: '', description: '', category: '', difficulty: 'Medium', duration: 60, passingMarks: 60, negativeMarks: 0.25, instructions: '', status: 'Draft' };
+const DEFAULT_DATA = { name: '', description: '', category: '', difficulty: 'Medium', duration: '', passingMarks: '', negativeMarks: 0.25, instructions: '', status: 'Draft' };
 
 export default function CreateTest({ tests, setTests }) {
   const navigate = useNavigate();

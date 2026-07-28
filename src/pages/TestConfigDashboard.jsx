@@ -53,7 +53,7 @@ export default function TestConfigDashboard({ tests, setTests }) {
   return (
     <div className="max-w-[1200px] mx-auto space-y-6">
       {/* Page Header */}
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Test Configuration</h1>
           <p className="text-slate-400 text-xs font-medium mt-1">Manage and publish assessments.</p>
@@ -62,7 +62,7 @@ export default function TestConfigDashboard({ tests, setTests }) {
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => navigate('/test-configuration/create')}
-          className="flex items-center px-4 py-2.5 bg-[#1D5DB8] text-white rounded-xl font-semibold text-xs hover:bg-[#1649a0] transition-colors shadow-sm shadow-[#1D5DB8]/30"
+          className="flex items-center px-4 py-2.5 bg-[#1D5DB8] text-white rounded-xl font-semibold text-xs hover:bg-[#1649a0] transition-colors shadow-sm shadow-[#1D5DB8]/30 self-stretch sm:self-auto justify-center"
         >
           <FiPlus className="w-4 h-4 mr-1.5" />
           Create Test
@@ -70,7 +70,7 @@ export default function TestConfigDashboard({ tests, setTests }) {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {loading ? (
           Array(4).fill(0).map((_, i) => <SkeletonCard key={i} />)
         ) : (
@@ -84,7 +84,7 @@ export default function TestConfigDashboard({ tests, setTests }) {
       </div>
 
       {/* Search & Filters */}
-      <div className="flex items-center space-x-3 flex-wrap gap-y-2">
+      <div className="flex items-stretch sm:items-center flex-wrap gap-3">
         <div className="flex-1 min-w-[220px]">
           <SearchBar value={search} onChange={setSearch} placeholder="Search tests..." />
         </div>

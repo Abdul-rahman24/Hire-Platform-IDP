@@ -38,7 +38,7 @@ function LivePreview({ data }) {
 export default function CreateQuestionModal({ isOpen, onClose, onSave, initial, sectionTitle }) {
   const toast = useToast();
   const [form, setForm] = useState(initial || {
-    question: '', type: 'MCQ', marks: 2, negativeMarks: 0, difficulty: 'Easy',
+    question: '', type: 'MCQ', marks: '', negativeMarks: '', difficulty: 'Easy',
     options: [
       { optionId: 'A', text: '' }, { optionId: 'B', text: '' },
       { optionId: 'C', text: '' }, { optionId: 'D', text: '' },
@@ -50,7 +50,7 @@ export default function CreateQuestionModal({ isOpen, onClose, onSave, initial, 
   React.useEffect(() => {
     if (isOpen) {
       setForm(initial || {
-        question: '', type: 'MCQ', marks: 2, negativeMarks: 0, difficulty: 'Easy',
+        question: '', type: 'MCQ', marks: '', negativeMarks: '', difficulty: 'Easy',
         options: [
           { optionId: 'A', text: '' }, { optionId: 'B', text: '' },
           { optionId: 'C', text: '' }, { optionId: 'D', text: '' },
@@ -154,10 +154,10 @@ export default function CreateQuestionModal({ isOpen, onClose, onSave, initial, 
 
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Marks" required>
-                  <input type="number" min={0} value={form.marks} onChange={e => set('marks', +e.target.value)} className={inputCls} />
+                  <input type="number" min={0} value={form.marks} placeholder="e.g. 2" onChange={e => set('marks', e.target.value === '' ? '' : parseInt(e.target.value, 10))} className={inputCls} />
                 </Field>
                 <Field label="Negative Marks">
-                  <input type="number" min={0} step={0.25} value={form.negativeMarks} onChange={e => set('negativeMarks', +e.target.value)} className={inputCls} />
+                  <input type="number" min={0} step={0.25} value={form.negativeMarks} placeholder="e.g. 0" onChange={e => set('negativeMarks', e.target.value === '' ? '' : parseFloat(e.target.value))} className={inputCls} />
                 </Field>
               </div>
 

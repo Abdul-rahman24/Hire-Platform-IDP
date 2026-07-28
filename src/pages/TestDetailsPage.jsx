@@ -96,7 +96,7 @@ function CompleteViewModal({ test, onClose }) {
                               <span>{opt.text}</span>
                             </div>
                             {isCorrect && (
-                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full flex items-center">
+                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full flex items-center hidden sm:inline-flex">
                                 ✓ Correct Answer
                               </span>
                             )}
@@ -241,14 +241,14 @@ export default function TestDetailsPage() {
         className="bg-white rounded-[14px] border border-slate-200/80 shadow-sm overflow-hidden"
       >
         <div className="p-6">
-          <div className="flex justify-between items-start mb-5">
+          <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-5">
             <div className="flex-1 min-w-0 pr-4">
               <div className="flex items-center space-x-3 mb-1.5">
                 <h1 className="text-xl font-bold text-slate-900 truncate">{testData.title}</h1>
               </div>
               <p className="text-xs text-slate-400 font-mono mt-0.5">Test ID: {testData.testId || id}</p>
             </div>
-            <div className="flex items-center space-x-2 flex-shrink-0">
+            <div className="flex items-center space-x-2 self-stretch md:self-auto justify-end flex-wrap gap-y-2">
               <button onClick={() => setCompleteView(true)} className="flex items-center px-3 py-2 border border-slate-200 text-slate-600 rounded-[10px] font-semibold text-xs hover:bg-slate-50 transition-colors">
                 <FiEye className="w-3.5 h-3.5 mr-1.5" /> Full View
               </button>
@@ -262,7 +262,7 @@ export default function TestDetailsPage() {
           </div>
 
           {/* Quick Stats */}
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <StatMini icon={<FiClock className="w-4 h-4" />} label="Duration" value={`${testData.durationMinutes || 90} min`} color="blue" loading={loading} />
             <StatMini icon={<FiAward className="w-4 h-4" />} label="Total Marks" value={testData.totalMarks || 100} color="amber" loading={loading} />
             <StatMini icon={<FiLayers className="w-4 h-4" />} label="Question Set" value={testData.questionSetName || testData.questionSetId || 'Default Set'} color="slate" loading={loading} />
@@ -342,7 +342,7 @@ export default function TestDetailsPage() {
                             <span>{opt.text}</span>
                           </div>
                           {isCorrect && (
-                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full hidden sm:inline-block">
                               ✓ Correct
                             </span>
                           )}

@@ -5,7 +5,28 @@ import {
   FiPlus, FiSearch, FiEye, FiEdit2, FiTrash2,
   FiFileText, FiCheckCircle, FiClock, FiLayers, FiAward
 } from 'react-icons/fi';
-import { Badge, StatMini, ConfirmDialog, SkeletonRow, EmptyState } from '../components/tc/Shared';
+import { Badge, StatMini, ConfirmDialog, EmptyState } from '../components/tc/Shared';
+
+function LocalSkeletonRow() {
+  return (
+    <tr className="animate-pulse">
+      <td className="px-5 py-4">
+        <div className="flex items-center">
+          <div className="w-8 h-8 rounded-xl bg-slate-100 mr-3 flex-shrink-0" />
+          <div className="space-y-1.5 flex-1">
+            <div className="h-3.5 bg-slate-100 rounded w-36" />
+            <div className="h-2.5 bg-slate-100 rounded w-24" />
+          </div>
+        </div>
+      </td>
+      <td className="px-3 py-4"><div className="h-3.5 bg-slate-100 rounded w-16" /></td>
+      <td className="px-3 py-4"><div className="h-3.5 bg-slate-100 rounded w-12" /></td>
+      <td className="px-3 py-4"><div className="h-3.5 bg-slate-100 rounded w-12" /></td>
+      <td className="px-3 py-4"><div className="h-3.5 bg-slate-100 rounded w-12" /></td>
+      <td className="px-4 py-4 text-right"><div className="h-6 bg-slate-100 rounded w-20 ml-auto" /></td>
+    </tr>
+  );
+}
 import { CreateTestDrawer } from '../components/tc/Forms';
 import { useToast } from '../components/tc/Toast';
 import testConfigService from '../services/testConfigService';
@@ -168,7 +189,7 @@ export default function TestListPage() {
   return (
     <div className="w-full space-y-5">
       {/* Header */}
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Test Configuration</h1>
           <p className="text-slate-400 text-xs font-medium mt-1 font-sans">Manage tests and automated question set evaluations</p>
@@ -177,14 +198,14 @@ export default function TestListPage() {
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.97 }}
           onClick={() => { setEditTest(null); setDrawerOpen(true); }}
-          className="flex items-center px-4 py-2.5 bg-[#0B4A99] text-white rounded-xl font-semibold text-xs hover:bg-[#083A78] transition-colors shadow-xs"
+          className="flex items-center px-4 py-2.5 bg-[#0B4A99] text-white rounded-xl font-semibold text-xs hover:bg-[#083A78] transition-colors shadow-xs self-stretch sm:self-auto justify-center"
         >
           <FiPlus className="w-4 h-4 mr-1.5" /> Create Test
         </motion.button>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <StatMini icon={<FiFileText className="w-4 h-4" />} label="Total Tests" value={stats.total} color="blue" loading={loading} />
         <StatMini icon={<FiLayers className="w-4 h-4" />} label="Question Sets" value={stats.sections} color="amber" loading={loading} />
         <StatMini icon={<FiCheckCircle className="w-4 h-4" />} label="Total Questions" value={stats.questions} color="green" loading={loading} />
@@ -206,20 +227,21 @@ export default function TestListPage() {
 
       {/* Table Container */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-        <table className="w-full text-left table-fixed">
-          <thead>
-            <tr className="border-b border-slate-100 bg-slate-50/40">
-              <th className="px-5 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[32%]">Test Name</th>
-              <th className="px-3 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[20%]">Question Set</th>
-              <th className="px-3 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[12%]">Duration</th>
-              <th className="px-3 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[12%]">Total Marks</th>
-              <th className="px-3 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[12%]">Questions Count</th>
-              <th className="px-4 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-right w-[120px]">Actions</th>
-            </tr>
-          </thead>
+        <div className="overflow-x-auto overflow-y-hidden">
+          <table className="w-full text-left table-fixed min-w-[800px]">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50/40">
+                <th className="px-5 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[32%]">Test Name</th>
+                <th className="px-3 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[20%]">Question Set</th>
+                <th className="px-3 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[12%]">Duration</th>
+                <th className="px-3 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[12%]">Total Marks</th>
+                <th className="px-3 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[12%]">Questions Count</th>
+                <th className="px-4 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-right w-[120px]">Actions</th>
+              </tr>
+            </thead>
           <tbody className="divide-y divide-slate-100">
             {loading ? (
-              Array(5).fill(0).map((_, i) => <SkeletonRow key={i} />)
+              Array(5).fill(0).map((_, i) => <LocalSkeletonRow key={i} />)
             ) : paginated.length === 0 ? (
               <tr>
                 <td colSpan={6} className="py-0">
@@ -298,6 +320,7 @@ export default function TestListPage() {
             })}
           </tbody>
         </table>
+      </div>
 
         {/* Pagination */}
         {totalPages > 1 && (
