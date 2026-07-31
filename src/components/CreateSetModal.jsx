@@ -1,19 +1,79 @@
 import React, { useState, useEffect } from 'react';
+import CustomSelect from './CustomSelect';
 
 export default function CreateSetModal({ isOpen, onClose, onSave, initialData, loading }) {
   const [questionSetId, setQuestionSetId] = useState('');
+  const [setType, setSetType] = useState('MCQ');
   const [error, setError] = useState('');
+
+  // Local CSV states for optional upload
+  const [csvFileName, setCsvFileName] = useState('');
+  const [importedQuestions, setImportedQuestions] = useState([]);
 
   useEffect(() => {
     if (isOpen) {
       if (initialData) {
         setQuestionSetId(initialData.questionSetId || initialData.id || '');
+        setSetType(initialData.setType || 'MCQ');
       } else {
         setQuestionSetId('');
+        setSetType('MCQ');
       }
+      setCsvFileName('');
+      setImportedQuestions([]);
       setError('');
     }
   }, [isOpen, initialData]);
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setCsvFileName(file.name);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const fileContent = event.target.result;
+        try {
+          const lines = fileContent.split('\n');
+          if (lines.length < 2) return;
+          const questionsList = [];
+          const isCoding = setType === 'CODING';
+
+          for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+            const columns = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+
+            if (isCoding) {
+              if (columns.length >= 2) {
+                const questionId = columns[0].replace(/^"|"$/g, '').trim();
+                const questionText = columns[1].replace(/^"|"$/g, '').trim();
+                let language = columns[2] ? columns[2].replace(/^"|"$/g, '').trim().toLowerCase() : 'python';
+                if (language !== 'java') language = 'python';
+                const marks = columns[3] ? Number(columns[3].replace(/^"|"$/g, '').trim()) : 10;
+                questionsList.push({ questionId, question: questionText, questionType: 'CODING', language, marks });
+              }
+            } else {
+              if (columns.length >= 7) {
+                const questionId = columns[0].replace(/^"|"$/g, '').trim();
+                const questionText = columns[1].replace(/^"|"$/g, '').trim();
+                const optionA = columns[2].replace(/^"|"$/g, '').trim();
+                const optionB = columns[3].replace(/^"|"$/g, '').trim();
+                const optionC = columns[4].replace(/^"|"$/g, '').trim();
+                const optionD = columns[5].replace(/^"|"$/g, '').trim();
+                const correctAnswer = columns[6].replace(/^"|"$/g, '').trim().toUpperCase();
+                const marks = columns[7] ? Number(columns[7].replace(/^"|"$/g, '').trim()) : 2;
+                questionsList.push({ questionId, question: questionText, questionType: 'MCQ', optionA, optionB, optionC, optionD, correctAnswer, marks });
+              }
+            }
+          }
+          setImportedQuestions(questionsList);
+        } catch (err) {
+          console.error('Failed to parse CSV:', err);
+        }
+      };
+      reader.readAsText(file);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -24,7 +84,7 @@ export default function CreateSetModal({ isOpen, onClose, onSave, initialData, l
       return;
     }
     setError('');
-    onSave(questionSetId.trim());
+    onSave(questionSetId.trim(), setType, importedQuestions);
   };
 
   return (
@@ -37,7 +97,7 @@ export default function CreateSetModal({ isOpen, onClose, onSave, initialData, l
           <h2 className="text-sm font-bold text-slate-800">
             {initialData ? 'Edit Question Set' : 'Create Question Set'}
           </h2>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-650 transition-colors">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M6 18L18 6M6 6l12 12"></path></svg>
           </button>
         </div>
@@ -61,6 +121,71 @@ export default function CreateSetModal({ isOpen, onClose, onSave, initialData, l
             {error && <p className="text-[10px] text-red-500 font-semibold mt-1">{error}</p>}
             <p className="text-[9px] text-slate-400 mt-1">Unique identifier for this question set (e.g. SET001, JAVA_101).</p>
           </div>
+
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+              Set Type <span className="text-red-500">*</span>
+            </label>
+            <CustomSelect
+              value={setType}
+              onChange={(val) => {
+                setSetType(val);
+                setCsvFileName('');
+                setImportedQuestions([]);
+              }}
+              disabled={loading || !!initialData}
+              options={[
+                { value: 'MCQ', label: 'MCQ Set' },
+                { value: 'CODING', label: 'Coding Set' }
+              ]}
+            />
+            <p className="text-[9px] text-slate-400 mt-1">Select the type of questions this set will contain (cannot be changed later).</p>
+          </div>
+
+          {/* Optional CSV Upload option */}
+          {!initialData && (
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                Upload Questions from CSV <span className="text-slate-400 font-medium">(Optional)</span>
+              </label>
+              <div className="flex flex-col space-y-2">
+                <label className="flex items-center justify-center border-2 border-dashed border-slate-200 hover:border-[#0B4A99] hover:bg-blue-50/10 cursor-pointer rounded-xl p-3 bg-slate-50/50 transition-all">
+                  <div className="flex flex-col items-center justify-center text-center space-y-1">
+                    <div className="w-7 h-7 bg-white rounded-lg shadow-xs border border-slate-100 flex items-center justify-center text-[#0B4A99]">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                    </div>
+                    <span className="text-[11px] font-semibold text-slate-700">Choose CSV File</span>
+                    <input
+                      type="file"
+                      accept=".csv"
+                      className="hidden"
+                      onChange={handleFileChange}
+                    />
+                  </div>
+                </label>
+                {csvFileName && (
+                  <div className="flex items-center justify-between bg-emerald-50/50 border border-emerald-100 p-2.5 rounded-xl text-[10px] text-emerald-800">
+                    <span className="truncate pr-2 font-medium">✔ {csvFileName} ({importedQuestions.length} questions parsed)</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCsvFileName('');
+                        setImportedQuestions([]);
+                      }}
+                      className="text-rose-600 hover:text-rose-800 font-bold"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                )}
+              </div>
+              <p className="text-[9px] text-slate-400 mt-1 leading-normal">
+                {setType === 'CODING' 
+                  ? 'Format: questionId,question,language,marks' 
+                  : 'Format: questionId,question,optionA,optionB,optionC,optionD,correctAnswer,marks'}
+              </p>
+            </div>
+          )}
         </div>
         
         {/* Footer actions */}

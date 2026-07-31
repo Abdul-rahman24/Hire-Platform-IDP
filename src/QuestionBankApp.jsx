@@ -53,6 +53,7 @@ export default function QuestionBankApp() {
                   const validQuestions = rawQuestions.filter(q => q.itemType !== 'QUESTION_SET_HEADER' && (q.questionId || q.id || q.question));
                   const count = details.totalQuestions !== undefined ? details.totalQuestions : validQuestions.length;
                   const setTitle = setObj.title || setObj.name || details.setDetails?.title || details.title || `Assessment Set: ${id}`;
+                  const deducedType = setObj.setType || details.setType || details.setDetails?.setType || (validQuestions.some(q => (q.questionType || '').toUpperCase() === 'CODING' || q.language !== undefined) ? 'CODING' : 'MCQ');
                   return {
                     id,
                     questionSetId: id,
@@ -60,6 +61,7 @@ export default function QuestionBankApp() {
                     updated: 'Active set',
                     questionsCount: count,
                     status: 'Active',
+                    setType: deducedType,
                   };
                 }
               } catch {
@@ -72,6 +74,7 @@ export default function QuestionBankApp() {
                 updated: 'Active set',
                 questionsCount: 0,
                 status: 'Active',
+                setType: setObj.setType || 'MCQ',
               };
             })
           );
@@ -106,11 +109,26 @@ export default function QuestionBankApp() {
       const normalizedQuestions = rawQuestions
         .filter(q => q.itemType !== 'QUESTION_SET_HEADER' && (q.questionId || q.id || q.question))
         .map((q) => {
+          const isCoding = (q.questionType || '').toUpperCase() === 'CODING' || q.language !== undefined;
+
+          if (isCoding) {
+            return {
+              questionSetId: q.questionSetId || setId,
+              questionId: q.questionId || q.id || `Q-${Date.now()}`,
+              id: q.questionId || q.id,
+              question: q.question || q.questionText || q.text || '',
+              text: q.question || q.questionText || q.text || '',
+              questionType: 'CODING',
+              language: q.language || 'python',
+              marks: q.marks !== undefined ? Number(q.marks) : 10,
+            };
+          }
+
           const optA = q.optionA ? getOptText(q.optionA) : (q.options && q.options[0] ? getOptText(q.options[0]) : '');
           const optB = q.optionB ? getOptText(q.optionB) : (q.options && q.options[1] ? getOptText(q.options[1]) : '');
           const optC = q.optionC ? getOptText(q.optionC) : (q.options && q.options[2] ? getOptText(q.options[2]) : '');
           const optD = q.optionD ? getOptText(q.optionD) : (q.options && q.options[3] ? getOptText(q.options[3]) : '');
-          const correct = (q.correctOptionId || q.correctAnswer || 'A').toString().replace(/Option\s+/i, '').trim();
+          const correct = (q.correctOptionId || q.correctAnswer || 'A').toString().replace(/Option\s+/i, '').trim().toUpperCase();
 
           return {
             questionSetId: q.questionSetId || setId,
@@ -118,6 +136,7 @@ export default function QuestionBankApp() {
             id: q.questionId || q.id,
             question: q.question || q.questionText || q.text || '',
             text: q.question || q.questionText || q.text || '',
+            questionType: 'MCQ',
             optionA: optA,
             optionB: optB,
             optionC: optC,
@@ -130,7 +149,7 @@ export default function QuestionBankApp() {
             ],
             correctAnswer: correct,
             correctOptionId: correct,
-            marks: q.marks !== undefined ? Number(q.marks) : 1,
+            marks: q.marks !== undefined ? Number(q.marks) : 2,
           };
         });
 
@@ -157,10 +176,10 @@ export default function QuestionBankApp() {
   };
 
   // API 1: Create Question Set
-  const handleSaveQuestionSet = async (newQuestionSetId) => {
+  const handleSaveQuestionSet = async (newQuestionSetId, setType) => {
     setSubmitting(true);
     try {
-      const res = await questionBankService.createQuestionSet(newQuestionSetId);
+      const res = await questionBankService.createQuestionSet(newQuestionSetId, setType);
       const createdId = res?.data?.questionSetId || newQuestionSetId;
 
       const newSetItem = {
@@ -170,6 +189,7 @@ export default function QuestionBankApp() {
         updated: 'Created just now',
         questionsCount: 0,
         status: 'Active',
+        setType: setType || 'MCQ',
       };
 
       setSets(prev => {
@@ -216,6 +236,33 @@ export default function QuestionBankApp() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  // Sequential CSV questions import helper
+  const handleImportQuestions = async (importedList) => {
+    setSubmitting(true);
+    let successCount = 0;
+    let failCount = 0;
+    for (const q of importedList) {
+      try {
+        const payload = {
+          ...q,
+          questionSetId: currentSetId,
+        };
+        await questionBankService.createQuestion(payload);
+        successCount++;
+      } catch (err) {
+        console.error('Failed to import question:', q.questionId, err);
+        failCount++;
+      }
+    }
+    toast && toast({
+      type: successCount > 0 ? 'success' : 'info',
+      title: 'CSV Import Completed',
+      message: `Successfully imported ${successCount} questions.${failCount > 0 ? ` Failed to import ${failCount} questions.` : ''}`,
+    });
+    fetchSetDetails(currentSetId);
+    setSubmitting(false);
   };
 
   // API 6: Delete Question
@@ -271,6 +318,8 @@ export default function QuestionBankApp() {
     toast && toast({ type: 'info', title: 'Status Updated', message: 'Question Set status toggled.' });
   };
 
+  const activeSetType = activeSetInfo?.setType || sets.find(s => s.questionSetId === currentSetId || s.id === currentSetId)?.setType || 'MCQ';
+
   return (
     <div className="w-full">
       {currentSetId === null ? (
@@ -293,6 +342,7 @@ export default function QuestionBankApp() {
           onEditQuestion={(q) => { setEditingQuestion(q); setIsAddQuestionOpen(true); }}
           onDeleteQuestion={(q) => setDeleteConfirmQuestion(q)}
           onArchiveSet={handleToggleArchiveSet}
+          onImportQuestions={handleImportQuestions}
         />
       )}
 
@@ -302,6 +352,7 @@ export default function QuestionBankApp() {
         onClose={() => { setIsCreateSetOpen(false); setEditingSet(null); }}
         onSave={handleSaveQuestionSet}
         initialSetId={editingSet?.questionSetId || editingSet?.id}
+        initialData={editingSet}
         loading={submitting}
       />
 
@@ -312,6 +363,7 @@ export default function QuestionBankApp() {
         onSave={handleSaveQuestion}
         initialData={editingQuestion}
         currentQuestionSetId={currentSetId}
+        setType={activeSetType}
         loading={submitting}
       />
 

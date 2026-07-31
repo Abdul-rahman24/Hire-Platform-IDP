@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import CustomSelect from './CustomSelect';
 import { SkeletonCard } from './tc/Shared';
 
 function LocalSkeletonRow() {
@@ -16,153 +15,40 @@ function LocalSkeletonRow() {
         </div>
       </td>
       <td className="px-5 py-4"><div className="h-3.5 bg-slate-100 rounded w-12" /></td>
-      <td className="px-5 py-4"><div className="h-5 bg-slate-100 rounded-full w-16" /></td>
       <td className="px-5 py-4 text-right"><div className="h-4 bg-slate-100 rounded w-8 ml-auto" /></td>
     </tr>
   );
 }
 
-export default function DashboardOverview({ sets, loading, onNavigateToSet, onCreateSet, onEditSet, onDeleteSet, onToggleArchiveSet }) {
-  const [statusFilter, setStatusFilter] = useState('All');
+export default function DashboardOverview({ sets, loading, onNavigateToSet, onCreateSet, onEditSet, onDeleteSet }) {
+  const [setTypeTab, setSetTypeTab] = useState('MCQ'); // MCQ or CODING
 
-  // Filter sets by status
-  const filteredSets = sets.filter(s => {
-    if (statusFilter === 'All') return true;
-    return s.status.toLowerCase() === statusFilter.toLowerCase();
-  });
+  // Ensure all sets are active and separate MCQ and Coding sets
+  const mcqSets = sets.filter(s => (s.setType || 'MCQ').toUpperCase() === 'MCQ');
+  const codingSets = sets.filter(s => (s.setType || 'MCQ').toUpperCase() === 'CODING');
 
-  return (
-    <div className="w-full space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h2 className="text-[22px] font-bold text-slate-900 tracking-tight">Dashboard Overview</h2>
-          <p className="text-slate-400 text-xs mt-1">Manage your question sets.</p>
-        </div>
-        <motion.button 
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={onCreateSet} 
-          className="bg-[#0B4A99] text-white px-4 py-2.5 rounded-xl font-semibold text-xs hover:bg-[#083A78] transition-all flex items-center shadow-xs self-stretch sm:self-auto justify-center"
-        >
-          <svg className="w-4 h-4 mr-2 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4"></path></svg>
-          Create Question Set
-        </motion.button>
-      </div>
-
-      {/* Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {loading ? (
-          Array(4).fill(0).map((_, i) => <SkeletonCard key={i} />)
-        ) : (
-          <>
-            {/* Metric 1: Total Sets */}
-            <div className="bg-white p-4.5 rounded-2xl border border-slate-200/60 shadow-xs flex flex-col justify-between h-[115px]">
-              <div className="flex justify-between items-center">
-                <div className="w-8 h-8 bg-blue-50 text-[#0B4A99] rounded-xl flex items-center justify-center flex-shrink-0">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
-                </div>
-                <span className="text-[10px] font-semibold text-slate-400 text-right truncate pl-2">Total sets available</span>
-              </div>
-              <div className="mt-2">
-                <h3 className="text-xl font-bold text-slate-950 tracking-tight leading-none">{sets.length}</h3>
-                <p className="text-slate-400 text-[10px] font-medium mt-1">Total Sets</p>
-              </div>
-            </div>
-            
-            {/* Metric 2: Total Questions */}
-            <div className="bg-white p-4.5 rounded-2xl border border-slate-200/60 shadow-xs flex flex-col justify-between h-[115px]">
-              <div className="flex justify-between items-center">
-                <div className="w-8 h-8 bg-slate-50 text-slate-500 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                </div>
-                <span className="text-[10px] font-semibold text-slate-400 text-right truncate pl-2">Across all sets</span>
-              </div>
-              <div className="mt-2">
-                <h3 className="text-xl font-bold text-slate-950 tracking-tight leading-none">
-                  {sets.reduce((acc, curr) => acc + (curr.questionsCount || 0), 0)}
-                </h3>
-                <p className="text-slate-400 text-[10px] font-medium mt-1">Total Questions</p>
-              </div>
-            </div>
-
-            {/* Metric 3: Active Sets */}
-            <div className="bg-white p-4.5 rounded-2xl border border-slate-200/60 shadow-xs flex flex-col justify-between h-[115px]">
-              <div className="flex justify-between items-center">
-                <div className="w-8 h-8 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                </div>
-                <span className="text-[10px] font-semibold text-slate-400 text-right truncate pl-2">Ready for assessments</span>
-              </div>
-              <div className="mt-2">
-                <h3 className="text-xl font-bold text-slate-950 tracking-tight leading-none">
-                  {sets.filter(s => s.status === 'Active').length}
-                </h3>
-                <p className="text-slate-400 text-[10px] font-medium mt-1">Active Sets</p>
-              </div>
-            </div>
-
-            {/* Metric 4: Archived */}
-            <div className="bg-white p-4.5 rounded-2xl border border-slate-200/60 shadow-xs flex flex-col justify-between h-[115px]">
-              <div className="flex justify-between items-center">
-                <div className="w-8 h-8 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center flex-shrink-0">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
-                </div>
-                <span className="text-[10px] font-semibold text-slate-400 text-right truncate pl-2">Archived sets</span>
-              </div>
-              <div className="mt-2">
-                <h3 className="text-xl font-bold text-slate-950 tracking-tight leading-none">
-                  {sets.filter(s => s.status === 'Archived').length}
-                </h3>
-                <p className="text-slate-400 text-[10px] font-medium mt-1">Archived</p>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Main Table Container */}
-      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-xs overflow-hidden">
-        {/* Table Header Filter controls */}
-        <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 bg-slate-50/10">
-          <div className="flex items-center space-x-2">
-            <h3 className="text-[14px] font-bold text-slate-800">Question Sets</h3>
-            <span className="bg-[#eff2f6] text-slate-500 text-[10px] font-semibold px-2 py-0.5 rounded-full">
-              {filteredSets.length} Sets
-            </span>
-          </div>
-          <div className="flex items-center">
-            {/* Filter select Dropdown */}
-            <div className="w-full sm:w-44">
-              <CustomSelect
-                value={statusFilter}
-                onChange={(val) => setStatusFilter(val)}
-                options={[
-                  { value: 'All', label: 'Status: All Status' },
-                  { value: 'Active', label: 'Active' },
-                  { value: 'Draft', label: 'Draft' },
-                  { value: 'Archived', label: 'Archived' },
-                ]}
-              />
-            </div>
-          </div>
-        </div>
-        
-        {/* Table */}
-        <div className="overflow-x-auto overflow-y-hidden">
-          <table className="w-full min-w-[600px] lg:min-w-full">
-            <thead>
-              <tr className="border-b border-slate-100 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/20">
-                <th className="px-5 py-3.5 w-1/2">Set Name</th>
-                <th className="px-5 py-3.5">Questions</th>
-                <th className="px-5 py-3.5">Status</th>
-                <th className="px-5 py-3.5 text-right">Actions</th>
+  const renderSetsTable = (setsList, emptyMsg) => {
+    return (
+      <div className="overflow-x-auto overflow-y-hidden rounded-b-2xl">
+        <table className="w-full min-w-[600px] lg:min-w-full">
+          <thead>
+            <tr className="border-b border-slate-100 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/20">
+              <th className="px-5 py-3.5 w-2/3">Set Name</th>
+              <th className="px-5 py-3.5">Questions</th>
+              <th className="px-5 py-3.5 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {loading ? (
+              Array(3).fill(0).map((_, i) => <LocalSkeletonRow key={i} />)
+            ) : setsList.length === 0 ? (
+              <tr>
+                <td colSpan={3} className="px-5 py-10 text-center text-xs text-slate-400">
+                  {emptyMsg}
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                Array(4).fill(0).map((_, i) => <LocalSkeletonRow key={i} />)
-              ) : filteredSets.map((set, i) => (
+            ) : (
+              setsList.map((set, i) => (
                 <motion.tr 
                   key={set.id} 
                   initial={{ opacity: 0, y: 4 }}
@@ -188,26 +74,11 @@ export default function DashboardOverview({ sets, loading, onNavigateToSet, onCr
                     <span className="font-bold text-slate-800 text-xs">{set.questionsCount || 0}</span>
                     <span className="text-[10px] text-slate-400 font-medium ml-1">Questions</span>
                   </td>
-                  <td className="px-5 py-4">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                      set.status === 'Active' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                      set.status === 'Draft' ? 'bg-slate-100 text-slate-600 border-slate-200' :
-                      'bg-orange-50 text-orange-700 border-orange-100'
-                    }`}>
-                      <span className={`w-1 h-1 rounded-full mr-1.5 ${
-                        set.status === 'Active' ? 'bg-emerald-500' :
-                        set.status === 'Draft' ? 'bg-slate-400' : 'bg-orange-500'
-                      }`}></span>
-                      {set.status}
-                    </span>
-                  </td>
                   <td className="px-5 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end h-5">
-                      {/* Default Actions: Triple Dot */}
                       <div className="group-hover:hidden text-slate-400">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg>
                       </div>
-                      {/* Hover Actions: Direct Icon Buttons */}
                       <div className="hidden group-hover:flex items-center space-x-2">
                         <button 
                           onClick={() => onEditSet(set)} 
@@ -215,13 +86,6 @@ export default function DashboardOverview({ sets, loading, onNavigateToSet, onCr
                           title="Edit Set"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-                        </button>
-                        <button 
-                          onClick={() => onToggleArchiveSet(set.id)} 
-                          className="text-slate-400 hover:text-amber-600 transition-colors p-1"
-                          title={set.status === 'Archived' ? 'Unarchive Set' : 'Archive Set'}
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path></svg>
                         </button>
                         <button 
                           onClick={() => onDeleteSet(set)} 
@@ -234,10 +98,116 @@ export default function DashboardOverview({ sets, loading, onNavigateToSet, onCr
                     </div>
                   </td>
                 </motion.tr>
-              ))}
-            </tbody>
-          </table>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  const activeFilteredSets = setTypeTab === 'MCQ' ? mcqSets : codingSets;
+
+  return (
+    <div className="w-full space-y-6">
+      {/* Header with Create Button only */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 className="text-[22px] font-bold text-slate-900 tracking-tight">Dashboard Overview</h2>
+          <p className="text-slate-400 text-xs mt-1">Manage your question sets.</p>
         </div>
+        <motion.button 
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.97 }}
+          onClick={onCreateSet} 
+          className="bg-[#0B4A99] text-white px-4 py-2.5 rounded-xl font-semibold text-xs hover:bg-[#083A78] transition-all flex items-center shadow-xs self-stretch sm:self-auto justify-center"
+        >
+          <svg className="w-4 h-4 mr-2 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4"></path></svg>
+          Create Question Set
+        </motion.button>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {loading ? (
+          Array(3).fill(0).map((_, i) => <SkeletonCard key={i} />)
+        ) : (
+          <>
+            <div className="bg-white p-4.5 rounded-2xl border border-slate-200/60 shadow-xs">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Question Sets</p>
+              <h3 className="text-2xl font-bold text-slate-800 mt-1">{sets.length}</h3>
+            </div>
+            <div className="bg-white p-4.5 rounded-2xl border border-slate-200/60 shadow-xs">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">MCQ Sets</p>
+              <h3 className="text-2xl font-bold text-slate-800 mt-1">{mcqSets.length}</h3>
+            </div>
+            <div className="bg-white p-4.5 rounded-2xl border border-slate-200/60 shadow-xs">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Coding Sets</p>
+              <h3 className="text-2xl font-bold text-slate-800 mt-1">{codingSets.length}</h3>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Main Table Container */}
+      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-xs relative">
+        {/* Table Header Filter controls */}
+        <div className="px-5 py-4 border-b border-slate-100 flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 bg-slate-50/10 rounded-t-2xl">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex items-center space-x-2">
+              <h3 className="text-[14px] font-bold text-slate-800">Question Sets</h3>
+              <span className="bg-[#eff2f6] text-slate-500 text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                {activeFilteredSets.length} Sets
+              </span>
+            </div>
+
+            {/* Next-gen sliding toggle selector (MCQ | CODING) */}
+            <div className="relative flex bg-slate-100 p-1 rounded-xl text-[10px] font-extrabold border border-slate-200/50 self-start sm:self-auto space-x-1">
+              <button
+                type="button"
+                onClick={() => setSetTypeTab('MCQ')}
+                className={`relative px-4 py-1.5 rounded-lg transition-colors duration-200 cursor-pointer ${
+                  setTypeTab === 'MCQ' ? 'text-[#0B4A99]' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                {setTypeTab === 'MCQ' && (
+                  <motion.div
+                    layoutId="activeSegment"
+                    className="absolute inset-0 bg-white rounded-lg shadow-xs border border-slate-200/10"
+                    transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                  />
+                )}
+                <span className="relative z-10">MCQ</span>
+              </button>
+
+              <div className="w-px h-3.5 bg-slate-300 self-center" />
+
+              <button
+                type="button"
+                onClick={() => setSetTypeTab('CODING')}
+                className={`relative px-4 py-1.5 rounded-lg transition-colors duration-200 cursor-pointer ${
+                  setTypeTab === 'CODING' ? 'text-[#0B4A99]' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                {setTypeTab === 'CODING' && (
+                  <motion.div
+                    layoutId="activeSegment"
+                    className="absolute inset-0 bg-white rounded-lg shadow-xs border border-slate-200/10"
+                    transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                  />
+                )}
+                <span className="relative z-10">CODING</span>
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        {/* Table */}
+        {setTypeTab === 'MCQ' ? (
+          renderSetsTable(mcqSets, 'No MCQ question sets found.')
+        ) : (
+          renderSetsTable(codingSets, 'No Coding question sets found.')
+        )}
       </div>
     </div>
   );

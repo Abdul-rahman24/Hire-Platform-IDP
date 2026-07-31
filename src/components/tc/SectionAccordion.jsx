@@ -17,7 +17,7 @@ function QuestionCard({ question }) {
       <div className="p-4 pb-3">
         <div className="flex items-start justify-between mb-2.5">
           <div className="flex items-center space-x-2 flex-wrap gap-y-1">
-            <Badge status={question.type} />
+            <Badge status={(question.type || question.questionType || 'MCQ').toUpperCase()} />
             <Badge status={question.difficulty} />
           </div>
         </div>

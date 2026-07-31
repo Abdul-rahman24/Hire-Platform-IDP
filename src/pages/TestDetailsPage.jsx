@@ -1,108 +1,151 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   FiArrowLeft, FiEdit2, FiTrash2, FiPlus,
-  FiClock, FiAward, FiLayers, FiCheckCircle, FiEye, FiAlertTriangle
+  FiClock, FiAward, FiLayers, FiCheckCircle, FiEye, FiAlertTriangle, FiDatabase,
+  FiChevronLeft, FiChevronRight, FiCode, FiList, FiDownload
 } from 'react-icons/fi';
+import * as XLSX from 'xlsx';
 import { Badge, StatMini, ConfirmDialog, EmptyState } from '../components/tc/Shared';
-import SectionAccordion from '../components/tc/SectionAccordion';
-import { CreateTestDrawer, CreateSectionModal } from '../components/tc/Forms';
+import { CreateTestDrawer, SectionDrawer } from '../components/tc/Forms';
 import { useToast } from '../components/tc/Toast';
 import testConfigService from '../services/testConfigService';
 
-/* ─── Complete View Modal ─────────────────────────────────────────── */
-function CompleteViewModal({ test, onClose }) {
-  if (!test) return null;
-  const questions = test.questions || [];
+/* ─── Question Card Component ──────────────────────────────────────── */
+function QuestionCard({ question, idx }) {
+  const qType = (question.type || question.questionType || 'MCQ').toUpperCase();
+  const isMCQ = qType === 'MCQ';
+  const opts = question.options || [
+    { optionId: 'A', text: question.optionA },
+    { optionId: 'B', text: question.optionB },
+    { optionId: 'C', text: question.optionC },
+    { optionId: 'D', text: question.optionD },
+  ].filter(o => o.text);
+
+  const correctId = (question.correctAnswer || question.correctOptionId || 'A').toUpperCase().replace('OPTION ', '').trim();
 
   return (
-    <div className="fixed inset-0 z-[900] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+    <motion.div
+      initial={{ opacity: 0, y: 5 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: idx * 0.03 }}
+      className="bg-white border border-slate-200 rounded-[12px] p-4.5 space-y-3 shadow-xs hover:border-slate-300 transition-colors"
+    >
+      <div className="flex items-start justify-between">
+        <span className="text-[10px] font-bold text-[#0B4A99] bg-blue-50 px-2.5 py-0.5 rounded-full">
+          Q{idx + 1}
+        </span>
+        <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded border border-amber-100/50">
+          Marks: {question.marks || (isMCQ ? 2 : 10)}
+        </span>
+      </div>
+
+      <p className="text-xs font-semibold text-slate-800 leading-relaxed">
+        {question.question || question.questionText || question.text}
+      </p>
+
+      {isMCQ ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+          {opts.map((opt, oi) => {
+            const optId = (opt.optionId || String.fromCharCode(65 + oi)).toUpperCase();
+            const isCorrect = optId === correctId;
+            return (
+              <div
+                key={optId}
+                className={`flex items-center space-x-2.5 px-3 py-2 rounded-xl text-xs font-medium border transition-all ${
+                  isCorrect
+                    ? 'border-emerald-350 bg-emerald-50/60 text-emerald-800 font-bold shadow-xs'
+                    : 'border-slate-100 text-slate-505 bg-slate-50/20'
+                }`}
+              >
+                <span className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold ${
+                  isCorrect ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-655'
+                }`}>
+                  {optId}
+                </span>
+                <span className="truncate">{opt.text}</span>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 text-[10px] font-mono text-slate-500">
+          Language Parameter: <span className="text-blue-600 font-bold capitalize">{question.language || 'python'}</span>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+/* ─── Section-by-Section Complete View Modal ───────────────────────── */
+function CompleteViewModal({ test, onClose }) {
+  if (!test) return null;
+  const sections = test.sections || [];
+
+  return (
+    <div className="fixed inset-0 z-[900] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fade-in">
       <div className="absolute inset-0" onClick={onClose} />
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[88vh] flex flex-col z-10 overflow-hidden"
       >
-        <div className="flex items-start justify-between px-6 py-5 border-b border-slate-100 flex-shrink-0">
+        <div className="flex items-start justify-between px-6 py-5 border-b border-slate-100 flex-shrink-0 bg-slate-50/50">
           <div>
-            <h2 className="text-base font-bold text-slate-900">Complete Test View</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Test details, questions & options</p>
+            <h2 className="text-base font-bold text-slate-900">Complete Test Structure</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Metadata, sections, and nested questions</p>
           </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
 
-        <div className="overflow-y-auto flex-1 p-6 space-y-4">
+        <div className="overflow-y-auto flex-1 p-6 space-y-5">
           {/* Test Header Card */}
-          <div className="bg-[#2563EB] text-white rounded-[14px] p-5 shadow-sm">
+          <div className="bg-[#0B4A99] text-white rounded-[14px] p-5 shadow-sm">
             <h3 className="font-bold text-lg">{test.title}</h3>
+            {test.description && <p className="text-xs text-blue-155 mt-1 font-medium leading-relaxed">{test.description}</p>}
             <div className="flex items-center space-x-4 mt-3 text-blue-100 text-xs font-semibold">
-              <span>⏱ Duration: {test.durationMinutes || 90} min</span>
+              <span>⏱ Total Duration: {test.durationMinutes || 90} min</span>
               <span>• 🏆 Total Marks: {test.totalMarks || 100}</span>
-              <span>• 📝 Questions: {questions.length}</span>
+              <span>• 📝 Sections: {sections.length}</span>
             </div>
           </div>
 
-          {/* Questions List */}
-          <div className="space-y-3 pt-2">
-            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Test Questions ({questions.length})</h4>
-            {questions.length === 0 ? (
-              <p className="text-xs text-slate-400 text-center py-6">No questions found for this test.</p>
+          {/* Sections List */}
+          <div className="space-y-6">
+            {sections.length === 0 ? (
+              <p className="text-xs text-slate-400 text-center py-6">No sections found in this test.</p>
             ) : (
-              questions.map((q, qi) => {
-                const opts = q.options || [
-                  { optionId: 'A', text: q.optionA },
-                  { optionId: 'B', text: q.optionB },
-                  { optionId: 'C', text: q.optionC },
-                  { optionId: 'D', text: q.optionD },
-                ].filter(o => o.text);
-
-                const correctId = (q.correctAnswer || q.correctOptionId || 'A').toUpperCase().replace('OPTION ', '').trim();
-
+              sections.map((sec, secIdx) => {
+                const questions = sec.questions || [];
                 return (
-                  <div key={q.questionId || qi} className="bg-white border border-slate-200/90 rounded-[14px] p-4 space-y-3">
-                    <div className="flex items-start justify-between">
-                      <span className="text-[11px] font-bold text-[#2563EB] bg-blue-50 px-2.5 py-0.5 rounded-full">Q{qi + 1}</span>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">Type: {q.type || 'MCQ'}</span>
-                        <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md">Marks: {q.marks || 1}</span>
+                  <div key={sec.sectionId || secIdx} className="space-y-3.5 border-l-2 border-slate-100 pl-4">
+                    <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-lg">
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                          Section {sec.order || (secIdx + 1)}: {sec.sectionName || sec.title}
+                        </h4>
+                        <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
+                          Set ID: {sec.questionSetId} | Type: {sec.questionType}
+                        </p>
+                      </div>
+                      <div className="flex space-x-2 text-[10px] font-bold">
+                        <span className="bg-blue-50 text-[#0B4A99] px-2 py-0.5 rounded">{sec.durationMinutes} min limit</span>
+                        <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded">{sec.marks} marks</span>
                       </div>
                     </div>
 
-                    <p className="text-xs font-semibold text-slate-800 leading-relaxed">{q.question || q.questionText || q.text}</p>
-
-                    {/* Options */}
-                    <div className="space-y-1.5 pt-1">
-                      {opts.map((opt, oi) => {
-                        const optId = (opt.optionId || String.fromCharCode(65 + oi)).toUpperCase();
-                        const isCorrect = optId === correctId;
-                        return (
-                          <div
-                            key={optId}
-                            className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium border transition-all ${
-                              isCorrect
-                                ? 'border-emerald-300 bg-emerald-50/70 text-emerald-800 font-bold shadow-xs'
-                                : 'border-slate-100 text-slate-600 bg-slate-50/30'
-                            }`}
-                          >
-                            <div className="flex items-center space-x-2">
-                              <span className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold ${
-                                isCorrect ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'
-                              }`}>
-                                {optId}
-                              </span>
-                              <span>{opt.text}</span>
-                            </div>
-                            {isCorrect && (
-                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full flex items-center hidden sm:inline-flex">
-                                ✓ Correct Answer
-                              </span>
-                            )}
-                          </div>
-                        );
-                      })}
+                    {/* Section Questions */}
+                    <div className="space-y-3">
+                      {questions.length === 0 ? (
+                        <p className="text-[10px] text-slate-400 italic">No questions imported in this section.</p>
+                      ) : (
+                        questions.map((q, qi) => (
+                          <QuestionCard key={q.questionId || qi} question={q} idx={qi} />
+                        ))
+                      )}
                     </div>
                   </div>
                 );
@@ -115,7 +158,7 @@ function CompleteViewModal({ test, onClose }) {
   );
 }
 
-/* ─── Main Page ─────────────────────────────────────────────────── */
+/* ─── Main Details Page ───────────────────────────────────────────── */
 export default function TestDetailsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -125,34 +168,26 @@ export default function TestDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
+  // Modal / Drawer controls
   const [editDrawerOpen, setEditDrawerOpen] = useState(false);
   const [deleteTest, setDeleteTest] = useState(false);
   const [completeView, setCompleteView] = useState(false);
 
-  // 3. Get Test Details: GET /tests/{testId}
+  // Wizard active index
+  const [activeSectionIdx, setActiveSectionIdx] = useState(0);
+
+  // Section nested Drawer controls
+  const [sectionDrawerOpen, setSectionDrawerOpen] = useState(false);
+  const [editingSection, setEditingSection] = useState(null);
+  const [deleteSectionTarget, setDeleteSectionTarget] = useState(null);
+
+  // 3. Get Test Details
   const fetchTestDetails = useCallback(async () => {
     if (!id) return;
     setLoading(true);
     try {
-      const data = await testConfigService.getTest(id);
-      let loadedTest = data;
-
-      const qSetId = loadedTest.questionSetId || 'SET001';
-      try {
-        const qSetDetails = await testConfigService.getQuestionSetDetails(qSetId);
-        if (qSetDetails && qSetDetails.questions && qSetDetails.questions.length > 0) {
-          loadedTest = {
-            ...loadedTest,
-            questionSetId: qSetId,
-            questions: qSetDetails.questions,
-            questionSetName: qSetDetails.questionSetName || qSetId,
-          };
-        }
-      } catch (qsErr) {
-        console.error('Could not fetch question set details:', qsErr);
-      }
-
-      setTestData(loadedTest);
+      const data = await testConfigService.getCompleteTest(id);
+      setTestData(data);
     } catch (err) {
       console.error('Error loading test details:', err);
       toast && toast({ type: 'error', title: 'Error Loading Test', message: err.message });
@@ -165,14 +200,28 @@ export default function TestDetailsPage() {
     fetchTestDetails();
   }, [fetchTestDetails]);
 
-  // 4. Update Test: PUT /tests/{testId}
+  // Keep active index within safe bounds of test sections
+  useEffect(() => {
+    const secs = testData?.sections || [];
+    if (secs.length > 0 && activeSectionIdx >= secs.length) {
+      setActiveSectionIdx(secs.length - 1);
+    }
+  }, [testData, activeSectionIdx]);
+
+  // 4. Update Test and sections
   const handleUpdateTest = async (formData) => {
     setSubmitting(true);
     try {
-      const updated = await testConfigService.updateTest(id, formData);
-      toast && toast({ type: 'success', title: 'Test Updated', message: 'Test details saved successfully.' });
+      const testMetadata = {
+        title: formData.title,
+        description: formData.description,
+        durationMinutes: formData.durationMinutes,
+        totalMarks: formData.totalMarks,
+      };
+
+      await testConfigService.saveTestWithSections(id, testMetadata, formData.sections);
+      toast && toast({ type: 'success', title: 'Test Updated', message: 'Test saved successfully.' });
       setEditDrawerOpen(false);
-      // Auto refresh test details
       fetchTestDetails();
     } catch (err) {
       toast && toast({ type: 'error', title: 'Failed to Update Test', message: err.message });
@@ -181,15 +230,103 @@ export default function TestDetailsPage() {
     }
   };
 
-  // 5. Delete Test: DELETE /tests/{testId}
+  // 5. Delete Test
   const handleDeleteTest = async () => {
     setSubmitting(true);
     try {
+      const sectionsList = testData?.sections || [];
+      await Promise.all(sectionsList.map(s => testConfigService.deleteSection(s.sectionId)));
       await testConfigService.deleteTest(id);
       toast && toast({ type: 'success', title: 'Test Deleted', message: `Test deleted successfully.` });
       navigate('/test-configuration');
     } catch (err) {
       toast && toast({ type: 'error', title: 'Failed to Delete Test', message: err.message });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+
+
+  // Direct section actions on detail view (Nested Drawer Save)
+  const handleOpenAddSection = () => {
+    setEditingSection(null);
+    setSectionDrawerOpen(true);
+  };
+
+  const handleOpenEditSection = (sec) => {
+    setEditingSection(sec);
+    setSectionDrawerOpen(true);
+  };
+
+  const handleSaveSectionDirect = async (formData, updatedTestLimit) => {
+    setSubmitting(true);
+    try {
+      // 1. Validate and Update Test limits on the backend if changed on section submission
+      if (updatedTestLimit) {
+        const needDurationUpdate = updatedTestLimit.durationMinutes !== Number(testData.durationMinutes);
+        const needMarksUpdate = updatedTestLimit.totalMarks !== Number(testData.totalMarks);
+
+        if (needDurationUpdate || needMarksUpdate) {
+          const testMetadata = {
+            title: testData.title,
+            description: testData.description || '',
+            durationMinutes: updatedTestLimit.durationMinutes,
+            totalMarks: updatedTestLimit.totalMarks,
+          };
+          await testConfigService.updateTest(id, testMetadata);
+          
+          toast && toast({
+            type: 'success',
+            title: 'Test Limits Updated',
+            message: `Test limits auto-adjusted: Duration is now ${updatedTestLimit.durationMinutes} min, total marks is ${updatedTestLimit.totalMarks}.`
+          });
+        }
+      }
+
+      // 2. Create or update section details
+      const secId = formData.sectionId || formData.id;
+      if (secId && !String(secId).startsWith('temp-')) {
+        await testConfigService.updateSection(secId, formData);
+      } else {
+        await testConfigService.createSection(id, formData);
+      }
+
+      setSectionDrawerOpen(false);
+      fetchTestDetails();
+    } catch (err) {
+      toast({ type: 'error', title: 'Failed to Save Section', message: err.message });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteSectionDirect = async () => {
+    if (!deleteSectionTarget) return;
+    setSubmitting(true);
+    try {
+      const targetSec = sections.find(s => (s.sectionId || s.id) === deleteSectionTarget);
+      if (targetSec) {
+        const newDuration = Math.max(0, Number(testData.durationMinutes || 0) - Number(targetSec.durationMinutes || 0));
+        const newMarks = Math.max(0, Number(testData.totalMarks || 0) - Number(targetSec.marks || 0));
+
+        const testMetadata = {
+          title: testData.title,
+          description: testData.description || '',
+          durationMinutes: newDuration,
+          totalMarks: newMarks,
+        };
+        await testConfigService.updateTest(id, testMetadata);
+      }
+
+      await testConfigService.deleteSection(deleteSectionTarget);
+      toast({ type: 'success', title: 'Section Deleted', message: 'Section deleted and test configuration updated.' });
+      setDeleteSectionTarget(null);
+      // Reduce the wizard index if it is now out of bounds
+      setActiveSectionIdx(prev => Math.max(0, Math.min(prev, sections.length - 2)));
+      fetchTestDetails();
+    } catch (err) {
+      toast({ type: 'error', title: 'Failed to Delete Section', message: err.message });
     } finally {
       setSubmitting(false);
     }
@@ -223,7 +360,12 @@ export default function TestDetailsPage() {
     );
   }
 
-  const questions = testData.questions || [];
+  const sections = testData.sections || [];
+  const totalQuestionsCount = sections.reduce((sum, s) => sum + (s.questions ? s.questions.length : 0), 0);
+
+  // Active section mapping based on wizard step
+  const activeSection = sections[activeSectionIdx];
+  const activeQuestionsList = activeSection?.questions || [];
 
   return (
     <div className="w-full space-y-5">
@@ -247,114 +389,198 @@ export default function TestDetailsPage() {
                 <h1 className="text-xl font-bold text-slate-900 truncate">{testData.title}</h1>
               </div>
               <p className="text-xs text-slate-400 font-mono mt-0.5">Test ID: {testData.testId || id}</p>
+              {testData.description && (
+                <p className="text-xs text-slate-550 font-medium mt-1 leading-normal">{testData.description}</p>
+              )}
             </div>
             <div className="flex items-center space-x-2 self-stretch md:self-auto justify-end flex-wrap gap-y-2">
-              <button onClick={() => setCompleteView(true)} className="flex items-center px-3 py-2 border border-slate-200 text-slate-600 rounded-[10px] font-semibold text-xs hover:bg-slate-50 transition-colors">
+              <button onClick={() => setCompleteView(true)} className="flex items-center px-3 py-2 bg-white border border-slate-200 text-slate-655 rounded-[10px] font-bold text-xs hover:bg-slate-50 transition-colors shadow-xs cursor-pointer">
                 <FiEye className="w-3.5 h-3.5 mr-1.5" /> Full View
               </button>
-              <button onClick={() => setEditDrawerOpen(true)} className="flex items-center px-3 py-2 border border-slate-200 text-slate-600 rounded-[10px] font-semibold text-xs hover:bg-slate-50 transition-colors">
-                <FiEdit2 className="w-3.5 h-3.5 mr-1.5" /> Edit
+              <button onClick={() => setEditDrawerOpen(true)} className="flex items-center px-3 py-2 bg-white border border-slate-200 text-slate-655 rounded-[10px] font-bold text-xs hover:bg-slate-50 transition-colors shadow-xs cursor-pointer">
+                <FiEdit2 className="w-3.5 h-3.5 mr-1.5" /> Edit Test
               </button>
-              <button onClick={() => setDeleteTest(true)} className="flex items-center px-3 py-2 border border-red-200 text-red-600 rounded-[10px] font-semibold text-xs hover:bg-red-50 transition-colors">
-                <FiTrash2 className="w-3.5 h-3.5 mr-1.5" /> Delete
+              <button onClick={() => setDeleteTest(true)} className="flex items-center px-3 py-2 bg-white border border-rose-205 text-red-600 rounded-[10px] font-bold text-xs hover:bg-rose-50 transition-colors shadow-xs cursor-pointer">
+                <FiTrash2 className="w-3.5 h-3.5 mr-1.5" /> Delete Test
               </button>
             </div>
           </div>
 
           {/* Quick Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            <StatMini icon={<FiClock className="w-4 h-4" />} label="Duration" value={`${testData.durationMinutes || 90} min`} color="blue" loading={loading} />
+            <StatMini icon={<FiClock className="w-4 h-4" />} label="Duration Limit" value={`${testData.durationMinutes || 90} min`} color="blue" loading={loading} />
             <StatMini icon={<FiAward className="w-4 h-4" />} label="Total Marks" value={testData.totalMarks || 100} color="amber" loading={loading} />
-            <StatMini icon={<FiLayers className="w-4 h-4" />} label="Question Set" value={testData.questionSetName || testData.questionSetId || 'Default Set'} color="slate" loading={loading} />
-            <StatMini icon={<FiCheckCircle className="w-4 h-4" />} label="Questions Count" value={questions.length} color="green" loading={loading} />
+            <StatMini icon={<FiLayers className="w-4 h-4" />} label="Test Sections" value={`${sections.length} Sections`} color="slate" loading={loading} />
+            <StatMini icon={<FiCheckCircle className="w-4 h-4" />} label="Total Questions" value={totalQuestionsCount} color="green" loading={loading} />
           </div>
         </div>
       </motion.div>
 
-      {/* Questions Section */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
+      {/* Wizard-style Multi-Section Portal Manager */}
+      <div className="bg-white border border-slate-200 rounded-[14px] shadow-xs overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-50/20">
           <div>
-            <h2 className="text-base font-bold text-slate-800">Test Questions ({questions.length})</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Automatically imported from Question Set: {testData.questionSetId || 'Default'}</p>
+            <h2 className="text-sm font-bold text-slate-800">Test Sections</h2>
           </div>
+          <button
+            onClick={handleOpenAddSection}
+            className="flex items-center px-3 py-1.5 bg-[#2563EB]/15 text-[#2563EB] hover:bg-[#2563EB]/25 font-bold rounded-lg text-[10px] uppercase transition-colors cursor-pointer animate-fade-in"
+          >
+            <FiPlus className="w-3.5 h-3.5 mr-1" /> Add Section
+          </button>
         </div>
 
-        {/* Question Cards */}
-        {questions.length === 0 ? (
-          <EmptyState
-            icon={<FiCheckCircle className="w-7 h-7" />}
-            title="No questions in this test"
-            description="Select a valid Question Set to import questions into this test."
-          />
-        ) : (
-          <div className="space-y-3">
-            {questions.map((q, qi) => {
-              const opts = q.options || [
-                { optionId: 'A', text: q.optionA },
-                { optionId: 'B', text: q.optionB },
-                { optionId: 'C', text: q.optionC },
-                { optionId: 'D', text: q.optionD },
-              ].filter(o => o.text);
-
-              const correctId = (q.correctAnswer || q.correctOptionId || 'A').toUpperCase().replace('OPTION ', '').trim();
-
+        {/* Dynamic Exam Portal Tabs Header */}
+        {sections.length > 0 && (
+          <div className="flex border-b border-slate-200 overflow-x-auto space-x-1.5 bg-slate-50/5 select-none scrollbar-thin">
+            {sections.map((sec, idx) => {
+              const secId = sec.sectionId || sec.id;
+              const isActive = idx === activeSectionIdx;
+              const hasCoding = (sec.questions && sec.questions.some(q => (q.type || q.questionType || '').toUpperCase() === 'CODING')) || (sec.questionType || '').toUpperCase() === 'CODING';
+              const sectionType = hasCoding ? 'CODING' : 'MCQ';
+              const isCoding = sectionType === 'CODING';
               return (
-                <div key={q.questionId || qi} className="bg-white border border-slate-200/80 rounded-[14px] p-5 shadow-xs space-y-3">
-                  <div className="flex items-start justify-between">
-                    <span className="text-xs font-bold text-[#2563EB] bg-blue-50 px-3 py-1 rounded-full">
-                      Question {qi + 1}
-                    </span>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md uppercase tracking-wider">
-                        Type: {q.type || 'MCQ'}
-                      </span>
-                      <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200/60 px-2.5 py-1 rounded-md uppercase tracking-wider">
-                        Marks: {q.marks || 1}
-                      </span>
-                    </div>
-                  </div>
-
-                  <p className="text-sm font-semibold text-slate-800 leading-relaxed pt-1">
-                    {q.question || q.questionText || q.text}
-                  </p>
-
-                  {/* Options List with Green Highlight for Correct Option */}
-                  <div className="grid grid-cols-2 gap-2.5 pt-2">
-                    {opts.map((opt, oi) => {
-                      const optId = (opt.optionId || String.fromCharCode(65 + oi)).toUpperCase();
-                      const isCorrect = optId === correctId;
-                      return (
-                        <div
-                          key={optId}
-                          className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium border transition-all ${
-                            isCorrect
-                              ? 'border-emerald-500 bg-emerald-50/80 text-emerald-900 font-bold ring-1 ring-emerald-500/20 shadow-xs'
-                              : 'border-slate-200/80 text-slate-600 bg-slate-50/30'
-                          }`}
-                        >
-                          <div className="flex items-center space-x-2.5">
-                            <span className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold ${
-                              isCorrect ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-600'
-                            }`}>
-                              {optId}
-                            </span>
-                            <span>{opt.text}</span>
-                          </div>
-                          {isCorrect && (
-                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full hidden sm:inline-block">
-                              ✓ Correct
-                            </span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+                <button
+                  key={secId || idx}
+                  type="button"
+                  onClick={() => setActiveSectionIdx(idx)}
+                  className={`px-5 py-3 border-b-2 font-bold text-xs whitespace-nowrap transition-all flex items-center space-x-2 cursor-pointer ${
+                    isActive 
+                      ? 'border-[#0B4A99] text-[#0B4A99] bg-[#0B4A99]/5' 
+                      : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/30'
+                  }`}
+                >
+                  <span className={`w-4 h-4 rounded-md text-[9px] font-bold flex items-center justify-center ${
+                    isActive ? 'bg-[#0B4A99] text-white' : 'bg-slate-200 text-slate-500'
+                  }`}>
+                    {idx + 1}
+                  </span>
+                  <span>{sec.sectionName || sec.title}</span>
+                  <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${
+                    isCoding ? 'bg-blue-100 text-blue-700' : 'bg-indigo-100 text-indigo-700'
+                  }`}>
+                    {sectionType}
+                  </span>
+                </button>
               );
             })}
           </div>
         )}
+
+        {sections.length === 0 ? (
+          <div className="p-12 text-center text-slate-400 font-medium">
+            <FiLayers className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+            <p className="text-xs">No sections configured inside this test. Click "Add Section" to configure one.</p>
+          </div>
+        ) : activeSection ? (
+          /* Wizard Section content view */
+          <div className="p-5 space-y-5">
+            {/* Active Section details card */}
+            <div className="bg-slate-50 border border-slate-200/60 rounded-xl p-4.5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1.5">
+                <div className="flex items-center space-x-2 flex-wrap">
+                  <h3 className="font-bold text-slate-800 text-sm">{activeSection.sectionName || activeSection.title}</h3>
+                  {(() => {
+                    const hasCoding = (activeSection.questions && activeSection.questions.some(q => (q.type || q.questionType || '').toUpperCase() === 'CODING')) || (activeSection.questionType || '').toUpperCase() === 'CODING';
+                    const sectionType = hasCoding ? 'CODING' : 'MCQ';
+                    const isCoding = sectionType === 'CODING';
+                    return (
+                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                        isCoding 
+                          ? 'bg-blue-50 text-blue-600 border border-blue-100' 
+                          : 'bg-indigo-50 text-indigo-600 border border-indigo-100'
+                      }`}>
+                        {sectionType}
+                      </span>
+                    );
+                  })()}
+                </div>
+                <div className="flex items-center space-x-3 text-[10px] font-semibold text-slate-400 flex-wrap gap-y-1">
+                  <span className="flex items-center text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-100/50"><FiClock className="w-3.5 h-3.5 mr-0.5" /> {activeSection.durationMinutes || 30} min</span>
+                  <span>•</span>
+                  <span>🏆 Marks: {activeSection.marks}</span>
+                  <span>•</span>
+                  <span className="flex items-center"><FiDatabase className="w-3.5 h-3.5 mr-0.5" /> Set: {activeSection.questionSetId}</span>
+                  <span>•</span>
+                  <span>Shuffle Qs: {activeSection.shuffleQuestions ? 'Yes' : 'No'}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2 flex-shrink-0">
+                <button
+                  onClick={() => handleOpenEditSection(activeSection)}
+                  className="flex items-center px-3 py-1.5 bg-white border border-slate-250 hover:border-[#2563EB] text-slate-655 hover:text-[#2563EB] rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
+                >
+                  <FiEdit2 className="w-3.5 h-3.5 mr-1" /> Edit Section
+                </button>
+                <button
+                  onClick={() => setDeleteSectionTarget(activeSection.sectionId || activeSection.id)}
+                  className="flex items-center px-3 py-1.5 bg-white border border-rose-250 hover:border-red-600 text-slate-655 hover:text-red-650 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer"
+                >
+                  <FiTrash2 className="w-3.5 h-3.5 mr-1" /> Delete Section
+                </button>
+              </div>
+            </div>
+
+            {/* Questions of current active section */}
+            <div className="space-y-3 pt-1">
+              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                Section Questions ({activeQuestionsList.length})
+              </h4>
+
+              {activeQuestionsList.length === 0 ? (
+                <EmptyState
+                  icon={<FiCheckCircle className="w-7 h-7" />}
+                  title="No questions in this section"
+                  description="Questions are automatically integrated from the selected Question Set."
+                />
+              ) : (
+                <div key={activeSection.sectionId || activeSectionIdx} className="space-y-3.5 animate-fade-in">
+                  {activeQuestionsList.map((q, qIndex) => (
+                    <QuestionCard key={q.questionId || qIndex} question={q} idx={qIndex} />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Wizard Navigation Footer */}
+            <div className="border-t border-slate-100 pt-4 flex items-center justify-between mt-6 bg-slate-50/20 px-3 py-2 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setActiveSectionIdx(prev => Math.max(0, prev - 1))}
+                disabled={activeSectionIdx === 0}
+                className="flex items-center px-3.5 py-2 border border-slate-200 text-slate-655 rounded-lg font-bold text-xs hover:bg-slate-50 transition-colors disabled:opacity-45 disabled:cursor-not-allowed cursor-pointer"
+              >
+                <FiChevronLeft className="w-4 h-4 mr-1" /> Previous Section
+              </button>
+
+              {/* Step indicator pills */}
+              <div className="flex items-center space-x-2">
+                {sections.map((sec, idx) => (
+                  <button
+                    key={sec.sectionId || sec.id || idx}
+                    onClick={() => setActiveSectionIdx(idx)}
+                    className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
+                      idx === activeSectionIdx 
+                        ? 'bg-[#0B4A99] w-6' 
+                        : 'bg-slate-200 hover:bg-slate-400 w-2'
+                    }`}
+                    title={sec.sectionName || sec.title}
+                  />
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setActiveSectionIdx(prev => Math.min(sections.length - 1, prev + 1))}
+                disabled={activeSectionIdx === sections.length - 1}
+                className="flex items-center px-3.5 py-2 border border-slate-200 text-slate-655 rounded-lg font-bold text-xs hover:bg-slate-50 transition-colors disabled:opacity-45 disabled:cursor-not-allowed cursor-pointer"
+              >
+                Next Section <FiChevronRight className="w-4 h-4 ml-1" />
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {/* Edit Drawer */}
@@ -366,19 +592,44 @@ export default function TestDetailsPage() {
         loading={submitting}
       />
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Test Confirmation */}
       <ConfirmDialog
         isOpen={deleteTest}
         title="Delete Test?"
         description={`Are you sure you want to delete test "${testData.title}"?`}
         confirmLabel="Delete Test"
         danger
+        loading={submitting}
         onConfirm={handleDeleteTest}
         onCancel={() => setDeleteTest(false)}
       />
 
+      {/* Delete Section Confirmation */}
+      <ConfirmDialog
+        isOpen={!!deleteSectionTarget}
+        title="Delete Section?"
+        description="Are you sure you want to remove this section? This will unlink its associated question set from the test."
+        confirmLabel="Delete Section"
+        danger
+        loading={submitting}
+        onConfirm={handleDeleteSectionDirect}
+        onCancel={() => setDeleteSectionTarget(null)}
+      />
+
       {/* Complete View Modal */}
       {completeView && <CompleteViewModal test={testData} onClose={() => setCompleteView(false)} />}
+
+      {/* Nested Section Drawer (Slide-over Drawer) */}
+      <SectionDrawer
+        isOpen={sectionDrawerOpen}
+        onClose={() => { setSectionDrawerOpen(false); setEditingSection(null); }}
+        onSave={handleSaveSectionDirect}
+        initial={editingSection}
+        orderIndex={editingSection ? editingSection.order : sections.length + 1}
+        testDuration={Number(testData.durationMinutes)}
+        testMarks={Number(testData.totalMarks)}
+        sectionsList={sections}
+      />
     </div>
   );
 }

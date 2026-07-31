@@ -1,6 +1,21 @@
 import api from '../api/axios';
 
-const formatQuestionPayload = (payload) => {
+const formatQuestionPayload = (rawPayload) => {
+  const payload = rawPayload || {};
+  const isCoding = (payload.questionType || '').toUpperCase() === 'CODING';
+
+  if (isCoding) {
+    return {
+      questionId: payload.questionId || payload.id,
+      questionSetId: payload.questionSetId,
+      questionType: 'CODING',
+      question: payload.question || payload.questionText || payload.text || '',
+      language: payload.language || 'python',
+      marks: Number(payload.marks !== undefined ? payload.marks : 10),
+    };
+  }
+
+  // MCQ Format
   const optA = typeof payload.optionA === 'string' ? payload.optionA : (payload.optionA?.text || '');
   const optB = typeof payload.optionB === 'string' ? payload.optionB : (payload.optionB?.text || '');
   const optC = typeof payload.optionC === 'string' ? payload.optionC : (payload.optionC?.text || '');
@@ -25,10 +40,11 @@ const formatQuestionPayload = (payload) => {
   return {
     questionId: payload.questionId || payload.id,
     questionSetId: payload.questionSetId,
+    questionType: 'MCQ',
     question: payload.question || payload.questionText || payload.text || '',
     options: optionsArr,
     correctOptionId: cAns,
-    marks: Number(payload.marks !== undefined ? payload.marks : 1),
+    marks: Number(payload.marks !== undefined ? payload.marks : 2),
   };
 };
 
@@ -50,14 +66,18 @@ export const questionBankService = {
    * API 1: Create Question Set
    * POST /question-sets
    * @param {string} questionSetId - e.g. "SET001"
+   * @param {string} setType - "MCQ" or "CODING"
    */
-  async createQuestionSet(questionSetId) {
-    const response = await api.post('/question-sets', { questionSetId });
+  async createQuestionSet(questionSetId, setType) {
+    const response = await api.post('/question-sets', { 
+      questionSetId, 
+      setType: setType || 'MCQ' 
+    });
     return response.data;
   },
 
   /**
-   * API 2: Get Ques  tion Set Details & Questions List
+   * API 2: Get Question Set Details & Questions List
    * GET /question-sets/{questionSetId}
    * @param {string} questionSetId - e.g. "SET001"
    */

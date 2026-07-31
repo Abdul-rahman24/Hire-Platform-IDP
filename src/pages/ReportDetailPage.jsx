@@ -3,10 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   FiArrowLeft, FiRefreshCw, FiAlertCircle, FiCheckCircle,
   FiAward, FiTrendingUp, FiClock, FiAlertTriangle,
-  FiInfo, FiX, FiUser, FiChevronDown, FiChevronUp, FiMail,
+  FiInfo, FiX, FiUser, FiChevronDown, FiChevronUp, FiMail, FiDownload
 } from 'react-icons/fi';
 import { fetchTestReport, fetchTestCandidates } from '../api/reportsApi';
 import { useReportsData } from '../hooks/useReportsData';
+import ExcelJS from 'exceljs';
+import { useToast } from '../components/tc/Toast';
 
 /* ── Safe helpers ── */
 const safeNum = (v) => (typeof v === 'number' && isFinite(v) ? v : 0);
@@ -174,6 +176,7 @@ function CandidateDetail({ c }) {
 export default function ReportDetailPage() {
   const { testId } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
   const { data: report, loading, error, refresh } = useReportsData(fetchTestReport, testId);
   const { data: candidatesRaw, loading: candidatesLoading, error: candidatesError, refresh: refreshCandidates } = useReportsData(fetchTestCandidates, testId);
 
@@ -254,6 +257,420 @@ export default function ReportDetailPage() {
   const totalMarks = report.totalMarks;
   const durationMins = report.durationMinutes;
 
+  const handleDownloadExcel = async () => {
+    if (!report) return;
+    try {
+      const workbook = new ExcelJS.Workbook();
+
+      // Sheet 1: Summary Overview
+      const wsOverview = workbook.addWorksheet('Summary Overview');
+      wsOverview.views = [{ showGridLines: true }];
+
+      wsOverview.columns = [
+        { key: 'metric', width: 28 },
+        { key: 'val', width: 32 }
+      ];
+
+      // Row 1: Merged Title Banner
+      wsOverview.mergeCells('A1:B1');
+      const titleCell = wsOverview.getCell('A1');
+      titleCell.value = `${report.testName || 'Test'} - Report Summary`;
+      titleCell.font = { name: 'Segoe UI', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
+      titleCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF0B4A99' }
+      };
+      titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+      wsOverview.getRow(1).height = 36;
+
+      // Row 2: Column Headers
+      const overviewHeaderRow = wsOverview.getRow(2);
+      overviewHeaderRow.values = ['Report Metric', 'Value'];
+      overviewHeaderRow.height = 24;
+      overviewHeaderRow.eachCell((cell) => {
+        cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF1E293B' }
+        };
+        cell.alignment = { vertical: 'middle', horizontal: 'left' };
+      });
+
+      const metrics = [
+        { metric: 'Test Name', val: report.testName || 'N/A' },
+        { metric: 'Test ID', val: testId },
+        { metric: 'Duration Allowed (Min)', val: durationMins || 'N/A' },
+        { metric: 'Total Test Marks', val: totalMarks || 'N/A' },
+        { metric: 'Registered Candidates', val: effectiveTotal },
+        { metric: 'Completed Candidates', val: completed },
+        { metric: 'Pass Rate', val: passPercentage / 100 },
+        { metric: 'Passed Candidates Count', val: passed },
+        { metric: 'Failed Candidates Count', val: failed },
+        { metric: 'Average Score', val: avgScore },
+        { metric: 'Highest Score Scored', val: highest },
+        { metric: 'Lowest Score Scored', val: lowest },
+        { metric: 'Average Time Taken', val: fmtTime(avgTime) },
+        { metric: 'Average Warnings Count', val: avgWarnings },
+        { metric: 'Total Warnings Triggered', val: totalWarnings },
+      ];
+
+      metrics.forEach((m) => {
+        const row = wsOverview.addRow(m);
+        row.height = 20;
+        row.eachCell((cell, colNum) => {
+          cell.font = { name: 'Segoe UI', size: 9.5 };
+          cell.border = {
+            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+          };
+          if (colNum === 1) {
+            cell.font = { name: 'Segoe UI', size: 9.5, bold: true };
+          }
+          if (m.metric === 'Pass Rate' && colNum === 2) {
+            cell.numFmt = '0.0%';
+          }
+        });
+      });
+
+      // Sheet 2: Candidate Performance
+      const wsCandidates = workbook.addWorksheet('Candidate Performance');
+      wsCandidates.views = [{ showGridLines: true }];
+
+      wsCandidates.columns = [
+        { key: 'name', width: 22 },
+        { key: 'email', width: 26 },
+        { key: 'status', width: 14 },
+        { key: 'score', width: 14 },
+        { key: 'totalMarks', width: 14 },
+        { key: 'percentage', width: 20 },
+        { key: 'correct', width: 16 },
+        { key: 'wrong', width: 16 },
+        { key: 'unanswered', width: 14 },
+        { key: 'timeSec', width: 18 },
+        { key: 'timeFmt', width: 18 },
+        { key: 'proctorStatus', width: 18 },
+        { key: 'warnings', width: 16 },
+        { key: 'started', width: 22 },
+        { key: 'ended', width: 22 },
+        { key: 'submitted', width: 22 }
+      ];
+
+      // Row 1: Merged Title Banner
+      wsCandidates.mergeCells('A1:P1');
+      const candTitleCell = wsCandidates.getCell('A1');
+      candTitleCell.value = `${report.testName || 'Test'} - Candidate Performance Details`;
+      candTitleCell.font = { name: 'Segoe UI', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
+      candTitleCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF0B4A99' }
+      };
+      candTitleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+      wsCandidates.getRow(1).height = 36;
+
+      // Row 2: Column Headers
+      const candHeaderRow = wsCandidates.getRow(2);
+      candHeaderRow.values = [
+        'Candidate Name', 'Email Address', 'Result Status', 'Scored Marks', 'Total Marks',
+        'Score Percentage (%)', 'Correct Answers', 'Wrong Answers', 'Unanswered',
+        'Time Taken (Sec)', 'Time Taken (Fmt)', 'Proctoring Status', 'Warnings Count',
+        'Exam Started', 'Exam Ended', 'Exam Submitted'
+      ];
+      candHeaderRow.height = 26;
+      candHeaderRow.eachCell((cell) => {
+        cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF1E293B' }
+        };
+        cell.alignment = { vertical: 'middle', horizontal: 'left' };
+      });
+
+      // Data starts at Row 3
+      candidates.forEach((c) => {
+        const row = wsCandidates.addRow({
+          name: c.candidateName || 'Unknown',
+          email: c.mailId || 'N/A',
+          status: c.status || 'UNKNOWN',
+          score: safeNum(c.score),
+          totalMarks: safeNum(c.totalMarks),
+          percentage: safeNum(c.percentage) / 100,
+          correct: safeNum(c.correctAnswers),
+          wrong: safeNum(c.wrongAnswers),
+          unanswered: safeNum(c.unanswered),
+          timeSec: safeNum(c.timeTaken),
+          timeFmt: fmtTime(c.timeTaken),
+          proctorStatus: c.proctoringDetails?.status || 'N/A',
+          warnings: safeNum(c.proctoringDetails?.warningCount),
+          started: c.proctoringDetails?.startedAt ? new Date(c.proctoringDetails.startedAt).toLocaleString() : 'N/A',
+          ended: c.proctoringDetails?.endedAt ? new Date(c.proctoringDetails.endedAt).toLocaleString() : 'N/A',
+          submitted: c.submittedAt ? new Date(c.submittedAt).toLocaleString() : 'N/A'
+        });
+        row.height = 20;
+        row.eachCell((cell, colNum) => {
+          cell.font = { name: 'Segoe UI', size: 9 };
+          cell.border = {
+            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+          };
+          if (colNum >= 4 && colNum <= 10 || colNum === 13) {
+            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          } else {
+            cell.alignment = { horizontal: 'left', vertical: 'middle' };
+          }
+          if (colNum === 6) {
+            cell.numFmt = '0.0%';
+          }
+        });
+
+        const statusCell = row.getCell('status');
+        const val = (statusCell.value || '').toUpperCase();
+        if (val === 'PASSED') {
+          statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } };
+          statusCell.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF065F46' } };
+        } else if (val === 'FAILED') {
+          statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FEE2E2' } };
+          statusCell.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: '991B1B' } };
+        }
+      });
+
+      const lastRowIndex = wsCandidates.lastRow.number;
+      if (lastRowIndex >= 3) {
+        const summaryRowIndex = lastRowIndex + 2;
+        wsCandidates.mergeCells(`A${summaryRowIndex}:B${summaryRowIndex}`);
+        const summaryTitle = wsCandidates.getCell(`A${summaryRowIndex}`);
+        summaryTitle.value = 'AVERAGE / SUMMARY';
+        summaryTitle.font = { name: 'Segoe UI', size: 10, bold: true };
+        summaryTitle.alignment = { horizontal: 'center', vertical: 'middle' };
+
+        // Pre-calculated average marks
+        const avgScoredMarks = candidates.length > 0 ? (candidates.reduce((sum, c) => sum + safeNum(c.score), 0) / candidates.length) : 0;
+        // Pre-calculated average percentage (as raw fraction, e.g. 0.85 for 85%)
+        const avgPercentageVal = candidates.length > 0 ? (candidates.reduce((sum, c) => sum + safeNum(c.percentage), 0) / candidates.length) / 100 : 0;
+        // Pre-calculated average warnings count
+        const avgWarningsCountVal = candidates.length > 0 ? (candidates.reduce((sum, c) => sum + safeNum(c.proctoringDetails?.warningCount), 0) / candidates.length) : 0;
+
+        wsCandidates.getCell(`D${summaryRowIndex}`).value = {
+          formula: `=AVERAGE(D3:D${lastRowIndex})`,
+          result: Number(avgScoredMarks.toFixed(1))
+        };
+        wsCandidates.getCell(`D${summaryRowIndex}`).numFmt = '0.0';
+
+        wsCandidates.getCell(`F${summaryRowIndex}`).value = {
+          formula: `=AVERAGE(F3:F${lastRowIndex})`,
+          result: Number(avgPercentageVal.toFixed(3))
+        };
+        wsCandidates.getCell(`F${summaryRowIndex}`).numFmt = '0.0%';
+
+        wsCandidates.getCell(`M${summaryRowIndex}`).value = {
+          formula: `=AVERAGE(M3:M${lastRowIndex})`,
+          result: Number(avgWarningsCountVal.toFixed(1))
+        };
+        wsCandidates.getCell(`M${summaryRowIndex}`).numFmt = '0.0';
+
+        const summaryRow = wsCandidates.getRow(summaryRowIndex);
+        summaryRow.height = 24;
+        summaryRow.eachCell((cell) => {
+          cell.font = { name: 'Segoe UI', size: 9, bold: true };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            bottom: { style: 'double', color: { argb: 'FF94A3B8' } }
+          };
+        });
+      }
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${(report.testName || 'Test').replace(/[^a-z0-9]/gi, '_')}_Performance_Report.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast && toast({ type: 'success', title: 'Report Downloaded', message: 'Candidate performance report downloaded.' });
+    } catch (err) {
+      console.error('Failed to export report to Excel:', err);
+      toast && toast({ type: 'error', title: 'Export Failed', message: err.message });
+    }
+  };
+
+  const handleDownloadCandidatesExcel = async () => {
+    if (!candidates || candidates.length === 0) return;
+    try {
+      const workbook = new ExcelJS.Workbook();
+      
+      const worksheet = workbook.addWorksheet('Candidate Details');
+      worksheet.views = [{ showGridLines: true }];
+
+      worksheet.columns = [
+        { key: 'name', width: 22 },
+        { key: 'email', width: 26 },
+        { key: 'status', width: 14 },
+        { key: 'score', width: 14 },
+        { key: 'totalMarks', width: 14 },
+        { key: 'percentage', width: 20 },
+        { key: 'correct', width: 16 },
+        { key: 'wrong', width: 16 },
+        { key: 'unanswered', width: 14 },
+        { key: 'timeSec', width: 18 },
+        { key: 'timeFmt', width: 18 },
+        { key: 'proctorStatus', width: 18 },
+        { key: 'warnings', width: 16 },
+        { key: 'started', width: 22 },
+        { key: 'ended', width: 22 },
+        { key: 'submitted', width: 22 }
+      ];
+
+      // Row 1: Merged Title Banner
+      worksheet.mergeCells('A1:P1');
+      const titleCell = worksheet.getCell('A1');
+      titleCell.value = `${report.testName || 'Test'} - Candidate Performance Report`;
+      titleCell.font = { name: 'Segoe UI', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+      titleCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF0B4A99' }
+      };
+      titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
+      worksheet.getRow(1).height = 36;
+
+      // Row 2: Column Headers
+      const candHeaderRow = worksheet.getRow(2);
+      candHeaderRow.values = [
+        'Candidate Name', 'Email Address', 'Result Status', 'Scored Marks', 'Total Marks',
+        'Score Percentage (%)', 'Correct Answers', 'Wrong Answers', 'Unanswered',
+        'Time Taken (Sec)', 'Time Taken (Fmt)', 'Proctoring Status', 'Warnings Count',
+        'Exam Started', 'Exam Ended', 'Exam Submitted'
+      ];
+      candHeaderRow.height = 26;
+      candHeaderRow.eachCell((cell) => {
+        cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF1E293B' }
+        };
+        cell.alignment = { vertical: 'middle', horizontal: 'left' };
+      });
+
+      // Data starts at Row 3
+      candidates.forEach((c) => {
+        const row = worksheet.addRow({
+          name: c.candidateName || 'Unknown',
+          email: c.mailId || 'N/A',
+          status: c.status || 'UNKNOWN',
+          score: safeNum(c.score),
+          totalMarks: safeNum(c.totalMarks),
+          percentage: safeNum(c.percentage) / 100,
+          correct: safeNum(c.correctAnswers),
+          wrong: safeNum(c.wrongAnswers),
+          unanswered: safeNum(c.unanswered),
+          timeSec: safeNum(c.timeTaken),
+          timeFmt: fmtTime(c.timeTaken),
+          proctorStatus: c.proctoringDetails?.status || 'N/A',
+          warnings: safeNum(c.proctoringDetails?.warningCount),
+          started: c.proctoringDetails?.startedAt ? new Date(c.proctoringDetails.startedAt).toLocaleString() : 'N/A',
+          ended: c.proctoringDetails?.endedAt ? new Date(c.proctoringDetails.endedAt).toLocaleString() : 'N/A',
+          submitted: c.submittedAt ? new Date(c.submittedAt).toLocaleString() : 'N/A'
+        });
+        row.height = 20;
+        row.eachCell((cell, colNum) => {
+          cell.font = { name: 'Segoe UI', size: 9 };
+          cell.border = {
+            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+          };
+          if (colNum >= 4 && colNum <= 10 || colNum === 13) {
+            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+          } else {
+            cell.alignment = { horizontal: 'left', vertical: 'middle' };
+          }
+          if (colNum === 6) {
+            cell.numFmt = '0.0%';
+          }
+        });
+
+        const statusCell = row.getCell('status');
+        const val = (statusCell.value || '').toUpperCase();
+        if (val === 'PASSED') {
+          statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } };
+          statusCell.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF065F46' } };
+        } else if (val === 'FAILED') {
+          statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FEE2E2' } };
+          statusCell.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: '991B1B' } };
+        }
+      });
+
+      const lastRowIndex = worksheet.lastRow.number;
+      if (lastRowIndex >= 3) {
+        const summaryRowIndex = lastRowIndex + 2;
+        worksheet.mergeCells(`A${summaryRowIndex}:B${summaryRowIndex}`);
+        const summaryTitle = worksheet.getCell(`A${summaryRowIndex}`);
+        summaryTitle.value = 'AVERAGE / SUMMARY';
+        summaryTitle.font = { name: 'Segoe UI', size: 10, bold: true };
+        summaryTitle.alignment = { horizontal: 'center', vertical: 'middle' };
+
+        // Pre-calculated averages
+        const avgScoredMarks = candidates.length > 0 ? (candidates.reduce((sum, c) => sum + safeNum(c.score), 0) / candidates.length) : 0;
+        const avgPercentageVal = candidates.length > 0 ? (candidates.reduce((sum, c) => sum + safeNum(c.percentage), 0) / candidates.length) / 100 : 0;
+        const avgWarningsCountVal = candidates.length > 0 ? (candidates.reduce((sum, c) => sum + safeNum(c.proctoringDetails?.warningCount), 0) / candidates.length) : 0;
+
+        worksheet.getCell(`D${summaryRowIndex}`).value = {
+          formula: `=AVERAGE(D3:D${lastRowIndex})`,
+          result: Number(avgScoredMarks.toFixed(1))
+        };
+        worksheet.getCell(`D${summaryRowIndex}`).numFmt = '0.0';
+
+        worksheet.getCell(`F${summaryRowIndex}`).value = {
+          formula: `=AVERAGE(F3:F${lastRowIndex})`,
+          result: Number(avgPercentageVal.toFixed(3))
+        };
+        worksheet.getCell(`F${summaryRowIndex}`).numFmt = '0.0%';
+
+        worksheet.getCell(`M${summaryRowIndex}`).value = {
+          formula: `=AVERAGE(M3:M${lastRowIndex})`,
+          result: Number(avgWarningsCountVal.toFixed(1))
+        };
+        worksheet.getCell(`M${summaryRowIndex}`).numFmt = '0.0';
+
+        const summaryRow = worksheet.getRow(summaryRowIndex);
+        summaryRow.height = 24;
+        summaryRow.eachCell((cell) => {
+          cell.font = { name: 'Segoe UI', size: 9, bold: true };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+            bottom: { style: 'double', color: { argb: 'FF94A3B8' } }
+          };
+        });
+      }
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${(report.testName || 'Test').replace(/[^a-z0-9]/gi, '_')}_Candidate_Details.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast && toast({ type: 'success', title: 'Exported Candidates', message: 'Candidate details exported to Excel.' });
+    } catch (err) {
+      console.error('Failed to export candidates details:', err);
+      toast && toast({ type: 'error', title: 'Export Failed', message: err.message });
+    }
+  };
+
   /* ── Anomaly detection ── */
   const anomalies = [];
   if (completed > 0 && completed < 5) {
@@ -315,13 +732,22 @@ export default function ReportDetailPage() {
             </div>
           </div>
         </div>
-        <button
-          onClick={() => { refresh(); refreshCandidates(); }}
-          className="bg-[#0B4A99] text-white px-4 py-2 rounded-lg font-semibold text-xs hover:bg-[#083A78] transition-all flex items-center shadow-sm flex-shrink-0"
-        >
-          <FiRefreshCw className="w-3.5 h-3.5 mr-2" />
-          Refresh
-        </button>
+        <div className="flex items-center space-x-2.5">
+          <button
+            onClick={handleDownloadExcel}
+            className="bg-[#059669] hover:bg-[#047857] text-white px-4 py-2 rounded-lg font-semibold text-xs transition-all flex items-center shadow-sm flex-shrink-0 cursor-pointer"
+          >
+            <FiDownload className="w-3.5 h-3.5 mr-2" />
+            Download Report
+          </button>
+          <button
+            onClick={() => { refresh(); refreshCandidates(); }}
+            className="bg-[#0B4A99] text-white px-4 py-2 rounded-lg font-semibold text-xs hover:bg-[#083A78] transition-all flex items-center shadow-sm flex-shrink-0 cursor-pointer"
+          >
+            <FiRefreshCw className="w-3.5 h-3.5 mr-2" />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* ── Anomaly Banners ── */}
@@ -615,6 +1041,14 @@ export default function ReportDetailPage() {
               </span>
             )}
           </div>
+          {!candidatesLoading && candidates.length > 0 && (
+            <button
+              onClick={handleDownloadCandidatesExcel}
+              className="flex items-center px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 hover:text-emerald-800 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-xs border border-emerald-150"
+            >
+              <FiDownload className="w-3.5 h-3.5 mr-1.5" /> Export Candidates
+            </button>
+          )}
         </div>
 
         {/* Candidates error */}

@@ -9,18 +9,20 @@ export function Badge({ status, size = 'sm' }) {
     Draft:     'bg-slate-100 text-slate-600 border border-slate-200',
     Archived:  'bg-orange-50 text-orange-700 border border-orange-200',
     Active:    'bg-green-50 text-green-700 border border-green-200',
-    Inactive:  'bg-slate-100 text-slate-500 border border-slate-200',
+    Inactive:  'bg-slate-100 text-slate-505 border border-slate-200',
     Easy:      'bg-emerald-50 text-emerald-700 border border-emerald-200',
     Medium:    'bg-amber-50 text-amber-700 border border-amber-200',
     Hard:      'bg-red-50 text-red-700 border border-red-200',
     MCQ:       'bg-blue-50 text-blue-700 border border-blue-200',
+    CODING:    'bg-indigo-50 text-indigo-700 border border-indigo-200',
+    coding:    'bg-indigo-50 text-indigo-700 border border-indigo-200',
     Descriptive:'bg-purple-50 text-purple-700 border border-purple-200',
   };
   const dot = {
     Published: 'bg-green-500', Draft: 'bg-slate-400', Archived: 'bg-orange-500',
-    Active: 'bg-green-500', Inactive: 'bg-slate-400',
+    Active: 'bg-green-500', Inactive: 'bg-slate-450',
     Easy: 'bg-emerald-500', Medium: 'bg-amber-500', Hard: 'bg-red-500',
-    MCQ: 'bg-blue-500', Descriptive: 'bg-purple-500',
+    MCQ: 'bg-blue-500', CODING: 'bg-indigo-500', coding: 'bg-indigo-500', Descriptive: 'bg-purple-500',
   };
   const cls = map[status] || map.Draft;
   const dotCls = dot[status] || 'bg-slate-400';
@@ -72,11 +74,11 @@ export function EmptyState({ icon, title, description, action }) {
 }
 
 /* ─── Confirm Dialog ─────────────────────────────────────────────── */
-export function ConfirmDialog({ isOpen, title = 'Are you sure?', description, confirmLabel = 'Delete', onConfirm, onCancel, danger = true }) {
+export function ConfirmDialog({ isOpen, title = 'Are you sure?', description, confirmLabel = 'Delete', onConfirm, onCancel, danger = true, loading = false }) {
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-[900] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm">
-      <div className="absolute inset-0" onClick={onCancel} />
+      <div className="absolute inset-0" onClick={loading ? undefined : onCancel} />
       <motion.div
         initial={{ scale: 0.94, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -91,15 +93,32 @@ export function ConfirmDialog({ isOpen, title = 'Are you sure?', description, co
           </div>
           <div>
             <h3 className="text-sm font-bold text-slate-800">{title}</h3>
-            <p className="text-xs text-slate-500 mt-0.5">{description || 'This item can be restored later.'}</p>
+            <p className="text-xs text-slate-500 mt-0.5">{description || 'This action cannot be undone.'}</p>
           </div>
         </div>
         <div className="flex space-x-3">
-          <button onClick={onCancel} className="flex-1 px-4 py-2 border border-slate-200 text-slate-600 rounded-xl font-semibold text-xs hover:bg-slate-50 transition-colors">
+          <button 
+            type="button" 
+            onClick={onCancel} 
+            disabled={loading} 
+            className="flex-1 px-4 py-2 border border-slate-200 text-slate-600 rounded-xl font-semibold text-xs hover:bg-slate-50 transition-colors disabled:opacity-50"
+          >
             Cancel
           </button>
-          <button onClick={onConfirm} className={`flex-1 px-4 py-2 ${danger ? 'bg-red-600 hover:bg-red-700' : 'bg-[#0B4A99] hover:bg-[#083A78]'} text-white rounded-xl font-semibold text-xs transition-colors`}>
-            {confirmLabel}
+          <button 
+            type="button" 
+            onClick={onConfirm} 
+            disabled={loading} 
+            className={`flex-1 px-4 py-2 ${danger ? 'bg-red-600 hover:bg-red-700' : 'bg-[#0B4A99] hover:bg-[#083A78]'} text-white rounded-xl font-semibold text-xs transition-colors disabled:opacity-75 flex items-center justify-center`}
+          >
+            {loading ? (
+              <span className="flex items-center space-x-1.5">
+                <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                <span>Deleting...</span>
+              </span>
+            ) : (
+              confirmLabel
+            )}
           </button>
         </div>
       </motion.div>
