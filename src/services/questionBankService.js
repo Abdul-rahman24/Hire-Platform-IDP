@@ -9,6 +9,8 @@ const formatQuestionPayload = (rawPayload) => {
       questionId: payload.questionId || payload.id,
       questionSetId: payload.questionSetId,
       questionType: 'CODING',
+      question_type: 'CODING',
+      type: 'CODING',
       question: payload.question || payload.questionText || payload.text || '',
       language: payload.language || 'python',
       marks: Number(payload.marks !== undefined ? payload.marks : 10),
@@ -41,6 +43,8 @@ const formatQuestionPayload = (rawPayload) => {
     questionId: payload.questionId || payload.id,
     questionSetId: payload.questionSetId,
     questionType: 'MCQ',
+    question_type: 'MCQ',
+    type: 'MCQ',
     question: payload.question || payload.questionText || payload.text || '',
     options: optionsArr,
     correctOptionId: cAns,
@@ -71,7 +75,11 @@ export const questionBankService = {
   async createQuestionSet(questionSetId, setType) {
     const response = await api.post('/question-sets', { 
       questionSetId, 
-      setType: setType || 'MCQ' 
+      setType: setType || 'MCQ',
+      set_type: setType || 'MCQ',
+      questionType: setType || 'MCQ',
+      question_type: setType || 'MCQ',
+      type: setType || 'MCQ'
     });
     return response.data;
   },

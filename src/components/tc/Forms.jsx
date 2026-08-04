@@ -164,8 +164,8 @@ export function SectionDrawer({
       return;
     }
 
-    const selectedSet = questionSets.find(s => (s.questionSetId || s.id) === form.questionSetId);
-    const resolvedType = form.questionType || selectedSet?.setType || 'MCQ';
+    const selectedSet = questionSets.find(s => (s.questionSetId || s.id || s.setId) === form.questionSetId);
+    const resolvedType = selectedSet?.setType || form.questionType || 'MCQ';
 
     onSave({
       ...form,

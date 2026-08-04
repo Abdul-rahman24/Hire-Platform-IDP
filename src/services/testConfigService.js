@@ -15,6 +15,60 @@ let memoryTestsStore = [];
 let memoryTestSetMap = {};
 let memorySectionsStore = [];
 
+const buildSectionPayload = (sec, idx) => {
+  const qSetId = sec.questionSetId || sec.question_set_id || 'SET001';
+  const isCodingId = String(qSetId).toUpperCase().includes('CODING') || String(qSetId).toUpperCase().includes('CODE') || qSetId === 'SET003' || qSetId === 'SET010';
+  const typeVal = String(sec.questionType || sec.question_type || '').toUpperCase();
+  const isCodingType = typeVal.includes('CODING') || typeVal.includes('CODE');
+  const resolvedType = (isCodingId || isCodingType) ? 'CODING' : 'MCQ';
+
+  const sName = sec.sectionName || sec.section_name || sec.title || `Section ${(idx !== undefined ? idx + 1 : 1)}`;
+  const duration = Number(sec.durationMinutes !== undefined ? sec.durationMinutes : (sec.duration_minutes || 30));
+  const marks = Number(sec.marks || 10);
+  const order = Number(sec.order !== undefined ? sec.order : ((idx !== undefined ? idx + 1 : 1)));
+  const shuffleQ = sec.shuffleQuestions !== undefined ? sec.shuffleQuestions : !!sec.shuffle_questions;
+  const shuffleO = sec.shuffleOptions !== undefined ? sec.shuffleOptions : !!sec.shuffle_options;
+
+  return {
+    sectionName: sName,
+    section_name: sName,
+    questionSetId: qSetId,
+    question_set_id: qSetId,
+    questionType: resolvedType,
+    question_type: resolvedType,
+    durationMinutes: duration,
+    duration_minutes: duration,
+    marks: marks,
+    order: order,
+    shuffleQuestions: shuffleQ,
+    shuffle_questions: shuffleQ,
+    shuffleOptions: shuffleO,
+    shuffle_options: shuffleO,
+  };
+};
+
+const normalizeSection = (sec) => {
+  if (!sec) return sec;
+  const qSetId = sec.questionSetId || sec.question_set_id || '';
+  const isCodingId = String(qSetId).toUpperCase().includes('CODING') || String(qSetId).toUpperCase().includes('CODE') || qSetId === 'SET003' || qSetId === 'SET010';
+  const typeVal = String(sec.questionType || sec.question_type || '').toUpperCase();
+  const isCodingType = typeVal.includes('CODING') || typeVal.includes('CODE');
+  const resolvedType = (isCodingId || isCodingType) ? 'CODING' : 'MCQ';
+
+  return {
+    ...sec,
+    sectionId: sec.sectionId || sec.section_id || sec.id,
+    sectionName: sec.sectionName || sec.section_name || sec.title,
+    questionSetId: qSetId,
+    questionType: resolvedType,
+    durationMinutes: sec.durationMinutes !== undefined ? sec.durationMinutes : (sec.duration_minutes || 30),
+    shuffleQuestions: sec.shuffleQuestions !== undefined ? sec.shuffleQuestions : !!sec.shuffle_questions,
+    shuffleOptions: sec.shuffleOptions !== undefined ? sec.shuffleOptions : !!sec.shuffle_options,
+    marks: Number(sec.marks || 0),
+    order: Number(sec.order || 0),
+  };
+};
+
 export const testConfigService = {
   /**
    * 1. Get All Tests
@@ -166,6 +220,7 @@ export const testConfigService = {
       const response = await testApi.get(`/tests/${encodeURIComponent(testId)}/complete`);
       const data = response.data || response;
       if (data && Array.isArray(data.sections)) {
+        data.sections = data.sections.map(sec => normalizeSection(sec));
         return data;
       }
       throw new Error('Sections missing in response');
@@ -206,11 +261,11 @@ export const testConfigService = {
       const data = response.data;
       const items = data?.items || (Array.isArray(data) ? data : []);
       if (items.length > 0) {
-        return items;
+        return items.map(sec => normalizeSection(sec));
       }
-      return memorySectionsStore.filter(s => s.testId === testId);
+      return memorySectionsStore.filter(s => s.testId === testId).map(sec => normalizeSection(sec));
     } catch {
-      return memorySectionsStore.filter(s => s.testId === testId);
+      return memorySectionsStore.filter(s => s.testId === testId).map(sec => normalizeSection(sec));
     }
   },
 
@@ -221,13 +276,15 @@ export const testConfigService = {
    * @param {Object} sectionPayload
    */
   async createSection(testId, sectionPayload) {
+    const finalPayload = buildSectionPayload(sectionPayload);
+
     try {
-      const response = await testApi.post(`/tests/${encodeURIComponent(testId)}/sections`, sectionPayload);
+      const response = await testApi.post(`/tests/${encodeURIComponent(testId)}/sections`, finalPayload);
       const saved = response.data;
       const finalSec = {
         sectionId: saved?.sectionId || `sec-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
         testId,
-        ...sectionPayload
+        ...finalPayload
       };
       memorySectionsStore.push(finalSec);
       return finalSec;
@@ -235,7 +292,7 @@ export const testConfigService = {
       const finalSec = {
         sectionId: `sec-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
         testId,
-        ...sectionPayload
+        ...finalPayload
       };
       memorySectionsStore.push(finalSec);
       return finalSec;
@@ -249,13 +306,15 @@ export const testConfigService = {
    * @param {Object} sectionPayload
    */
   async updateSection(sectionId, sectionPayload) {
+    const finalPayload = buildSectionPayload(sectionPayload);
+
     try {
-      const response = await testApi.put(`/sections/${encodeURIComponent(sectionId)}`, sectionPayload);
-      memorySectionsStore = memorySectionsStore.map(s => s.sectionId === sectionId ? { ...s, ...sectionPayload } : s);
+      const response = await testApi.put(`/sections/${encodeURIComponent(sectionId)}`, finalPayload);
+      memorySectionsStore = memorySectionsStore.map(s => s.sectionId === sectionId ? { ...s, ...finalPayload } : s);
       return response.data;
     } catch {
-      memorySectionsStore = memorySectionsStore.map(s => s.sectionId === sectionId ? { ...s, ...sectionPayload } : s);
-      return { sectionId, ...sectionPayload };
+      memorySectionsStore = memorySectionsStore.map(s => s.sectionId === sectionId ? { ...s, ...finalPayload } : s);
+      return { sectionId, ...finalPayload };
     }
   },
 
@@ -295,16 +354,7 @@ export const testConfigService = {
       // 2. Update existing & create new sections
       await Promise.all(
         sectionsList.map(async (sec, idx) => {
-          const payload = {
-            sectionName: sec.sectionName || sec.title || `Section ${idx + 1}`,
-            questionSetId: sec.questionSetId,
-            questionType: sec.questionType || 'MCQ',
-            durationMinutes: Number(sec.durationMinutes || 30),
-            marks: Number(sec.marks || 10),
-            order: Number(sec.order || idx + 1),
-            shuffleQuestions: !!sec.shuffleQuestions,
-            shuffleOptions: !!sec.shuffleOptions,
-          };
+          const payload = buildSectionPayload(sec, idx);
           if (sec.sectionId && !String(sec.sectionId).startsWith('temp-') && !String(sec.sectionId).startsWith('sec-')) {
             // Keep original UUID if it exists
             await this.updateSection(sec.sectionId, payload);
@@ -325,16 +375,7 @@ export const testConfigService = {
       // Create all sections
       await Promise.all(
         sectionsList.map(async (sec, idx) => {
-          const payload = {
-            sectionName: sec.sectionName || sec.title || `Section ${idx + 1}`,
-            questionSetId: sec.questionSetId,
-            questionType: sec.questionType || 'MCQ',
-            durationMinutes: Number(sec.durationMinutes || 30),
-            marks: Number(sec.marks || 10),
-            order: Number(sec.order || idx + 1),
-            shuffleQuestions: !!sec.shuffleQuestions,
-            shuffleOptions: !!sec.shuffleOptions,
-          };
+          const payload = buildSectionPayload(sec, idx);
           await this.createSection(createdTestId, payload);
         })
       );
@@ -356,7 +397,7 @@ export const testConfigService = {
           return {
             questionSetId: qId,
             questionSetName: `${qId} - ${title}`,
-            setType: s.setType || 'MCQ',
+            setType: s.setType || s.setDetails?.setType || s.questionType || s.type || 'MCQ',
           };
         });
       }
@@ -371,11 +412,18 @@ export const testConfigService = {
    * Question Set API: Get Question Set Details & Questions
    */
   async getQuestionSetDetails(id) {
-    if (!id || id === 'SET003' || id === 'SET010' || id === 'sdfsdf') return { questionSetId: 'SET001', questions: [] };
+    if (!id) return { questionSetId: 'SET001', questions: [] };
+    const isCodingId = String(id).toUpperCase().includes('CODING') || id === 'SET003' || id === 'SET010';
+    const defaultType = isCodingId ? 'CODING' : 'MCQ';
+
     try {
       const response = await questionBankService.getQuestionSet(id);
       if (!response || response.notFound) {
-        return { questionSetId: id, questions: [] };
+        return { 
+          questionSetId: id, 
+          setType: defaultType, 
+          questions: [] 
+        };
       }
 
       const dataObj = response.data || response;
@@ -431,11 +479,15 @@ export const testConfigService = {
       return {
         questionSetId: id,
         questionSetName: dataObj.questionSetName || dataObj.name || id,
-        setType: dataObj.setType || dataObj.questionType || dataObj.type || (normalizedQuestions.some(q => q.type === 'CODING') ? 'CODING' : 'MCQ'),
+        setType: dataObj.setType || dataObj.setDetails?.setType || dataObj.questionType || dataObj.type || (normalizedQuestions.some(q => q.type === 'CODING') ? 'CODING' : defaultType),
         questions: normalizedQuestions,
       };
     } catch (err) {
-      return { questionSetId: id, questions: [] };
+      return { 
+        questionSetId: id, 
+        setType: defaultType, 
+        questions: [] 
+      };
     }
   },
 };
