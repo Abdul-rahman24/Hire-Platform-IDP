@@ -1,5 +1,7 @@
 package/
-
 lambda_package.zip
-
-/__pycache__
+lambda.zip
+.build-lambda/
+__pycache__/
+*.pyc
+.pytest_cache/
