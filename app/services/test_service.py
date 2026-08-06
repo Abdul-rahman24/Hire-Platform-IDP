@@ -37,6 +37,24 @@ class TestService(TestServiceInterface):
         self.section_repository = section_repository
         self.question_bank_client = question_bank_client or QuestionBankClient()
 
+    def _generate_unique_link_id(self) -> str:
+        existing_link_ids = set()
+        try:
+            existing_tests = self.repository.list()
+            for t in existing_tests:
+                lid = getattr(t, "link_id", None) or getattr(t, "linkId", None)
+                if lid:
+                    existing_link_ids.add(str(lid))
+        except Exception as e:
+            logger.warning("Error fetching existing tests for link_id uniqueness check: %s", e)
+
+        for _ in range(100):
+            candidate = _generate_6digit_link_id()
+            if candidate not in existing_link_ids:
+                return candidate
+
+        return _generate_6digit_link_id()
+
     def create_test(self, payload: TestCreateRequest) -> TestResponse:
         title = payload.title
         logger.info("Creating test definition with title '%s'", title)
@@ -56,7 +74,7 @@ class TestService(TestServiceInterface):
 
         dump = payload.model_dump()
         if not dump.get("link_id"):
-            dump["link_id"] = _generate_6digit_link_id()
+            dump["link_id"] = self._generate_unique_link_id()
         if not dump.get("test_status"):
             dump["test_status"] = "Active"
 
