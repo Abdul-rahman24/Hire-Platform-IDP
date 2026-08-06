@@ -21,12 +21,6 @@ class TestCreateRequest(BaseModel):
         validation_alias=AliasChoices("testStatus", "test_status", "status"),
         serialization_alias="testStatus",
     )
-    link_id: str | None = Field(
-        default=None,
-        alias="linkId",
-        validation_alias=AliasChoices("linkId", "link_id"),
-        serialization_alias="linkId",
-    )
     duration_minutes: int | None = Field(
         default=None,
         alias="durationMinutes",
@@ -59,12 +53,6 @@ class TestUpdateRequest(BaseModel):
         alias="testStatus",
         validation_alias=AliasChoices("testStatus", "test_status", "status"),
         serialization_alias="testStatus",
-    )
-    link_id: str | None = Field(
-        default=None,
-        alias="linkId",
-        validation_alias=AliasChoices("linkId", "link_id"),
-        serialization_alias="linkId",
     )
     duration_minutes: int | None = Field(
         default=None,
