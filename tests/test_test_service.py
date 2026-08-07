@@ -11,7 +11,7 @@ from app.repositories.interfaces import SectionRepositoryInterface, TestReposito
 from app.schemas.section import SectionCreateRequest, SectionWithQuestionsResponse
 from app.schemas.test import CreateTestRequest, TestResponse, UpdateTestRequest
 from app.utils.question_bank_client import QuestionBankClient
-from app.services.section_service import SectionService
+from app.services.section_service import SectionService, _extract_question_type_from_set
 from app.services.test_service import TestService
 
 
@@ -115,9 +115,16 @@ class FakeQuestionBankClient(QuestionBankClient):
             raise QuestionServiceException("Unable to retrieve question set.")
         if question_set_id == "INVALID":
             raise QuestionSetNotFoundException("Question set not found.")
+        if question_set_id == "BIT-CODING-001":
+            return {
+                "questionSetId": "BIT-CODING-001",
+                "type": "CODING",
+                "questions": [{"type": "CODING", "questionId": "Q-CODING-1"}],
+            }
         return {
             "questionSetId": question_set_id,
             "title": "Sample Set",
+            "type": "MCQ",
             "questions": [
                 {
                     "questionId": "Q-101",
@@ -155,7 +162,6 @@ def test_create_test_and_section() -> None:
         SectionCreateRequest(
             sectionName="Section 1",
             questionSetId="SET001",
-            questionType="MCQ",
             durationMinutes=45,
             marks=50,
             order=1,
@@ -165,6 +171,7 @@ def test_create_test_and_section() -> None:
     )
     assert sec_res.section_name == "Section 1"
     assert sec_res.question_set_id == "SET001"
+    assert sec_res.question_type == "MCQ"
 
 
 def test_get_complete_test_aggregates_sections_and_questions() -> None:
@@ -183,3 +190,37 @@ def test_get_complete_test_aggregates_sections_and_questions() -> None:
     assert result.total_marks == 40
     assert len(result.sections) == 1
     assert len(result.sections[0].questions) == 1
+
+
+def test_update_and_delete_test() -> None:
+    test_repo = FakeTestRepository()
+    sec_repo = FakeSectionRepository()
+    client = FakeQuestionBankClient()
+    test_service = TestService(repository=test_repo, section_repository=sec_repo, question_bank_client=client)
+
+    updated = test_service.update_test("TEST-001", UpdateTestRequest(title="Updated Exam Title", testStatus="Passive"))
+    assert updated.title == "Updated Exam Title"
+    assert updated.test_status == "Passive"
+
+    test_service.delete_test("TEST-001")
+    with pytest.raises(RepositoryNotFoundException):
+        test_service.get_test("TEST-001")
+
+
+def test_section_service_dynamic_question_type_extraction() -> None:
+    test_repo = FakeTestRepository()
+    sec_repo = FakeSectionRepository()
+    client = FakeQuestionBankClient()
+    sec_service = SectionService(repository=sec_repo, test_repository=test_repo, question_bank_client=client)
+
+    sec = sec_service.create_section(
+        "TEST-001",
+        SectionCreateRequest(
+            sectionName="Coding Section",
+            questionSetId="BIT-CODING-001",
+            durationMinutes=60,
+            marks=50,
+            order=2,
+        ),
+    )
+    assert sec.question_type == "CODING"
