@@ -24,6 +24,8 @@ class FakeTestRepository(TestRepositoryInterface[TestEntity]):
                 title="Mid Semester Examination",
                 description="Sample Midterm",
                 status="published",
+                test_status="Active",
+                link_id="123456",
                 created_at=timestamp,
                 updated_at=timestamp,
             )
@@ -140,9 +142,13 @@ def test_create_test_and_section() -> None:
     test_service = TestService(repository=test_repo, section_repository=sec_repo, question_bank_client=client)
     sec_service = SectionService(repository=sec_repo, test_repository=test_repo, question_bank_client=client)
 
-    test_res = test_service.create_test(CreateTestRequest(title="Final Examination", description="Final Exam", status="draft"))
+    test_res = test_service.create_test(CreateTestRequest(title="Final Examination", description="Final Exam", status="published"))
     assert test_res.title == "Final Examination"
     assert len(test_res.test_id) == 36
+    assert test_res.link_id is not None
+    assert len(test_res.link_id) == 6
+    assert test_res.link_id.isdigit()
+    assert test_res.test_status == "Active"
 
     sec_res = sec_service.create_section(
         test_res.test_id,
@@ -170,6 +176,8 @@ def test_get_complete_test_aggregates_sections_and_questions() -> None:
     result = test_service.get_test("TEST-001")
     assert result.test_id == "TEST-001"
     assert result.title == "Mid Semester Examination"
+    assert result.link_id == "123456"
+    assert result.test_status == "Active"
     assert result.total_sections == 1
     assert result.total_duration_minutes == 30
     assert result.total_marks == 40

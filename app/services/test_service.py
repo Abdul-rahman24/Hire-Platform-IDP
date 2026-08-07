@@ -75,8 +75,12 @@ class TestService(TestServiceInterface):
         dump = payload.model_dump()
         if not dump.get("link_id"):
             dump["link_id"] = self._generate_unique_link_id()
-        if not dump.get("test_status"):
-            dump["test_status"] = "Active"
+        
+        # Ensure test_status is explicitly set to Active if not provided or defaulted
+        if not dump.get("test_status") or dump.get("test_status") in ("published", "draft"):
+            dump["test_status"] = getattr(payload, "test_status", None) or "Active"
+            if dump["test_status"] in ("published", "draft"):
+                dump["test_status"] = "Active"
 
         entity = TestEntity(**dump)
         created_entity = self.repository.create(entity)
@@ -139,7 +143,7 @@ class TestService(TestServiceInterface):
         section_entities: list[SectionEntity],
     ) -> TestResponse:
         link_id_val = getattr(test_entity, "link_id", None) or getattr(test_entity, "linkId", None)
-        test_status_val = getattr(test_entity, "test_status", None) or getattr(test_entity, "testStatus", "Active")
+        test_status_val = getattr(test_entity, "test_status", None) or getattr(test_entity, "testStatus", None) or "Active"
 
         # Case A: Single-Set Test (created with question_set_id)
         if test_entity.question_set_id is not None and not section_entities:
