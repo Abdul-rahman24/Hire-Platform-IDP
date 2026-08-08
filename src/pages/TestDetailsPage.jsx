@@ -385,15 +385,99 @@ export default function TestDetailsPage() {
         <div className="p-6">
           <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-5">
             <div className="flex-1 min-w-0 pr-4">
-              <div className="flex items-center space-x-3 mb-1.5">
+              <div className="flex items-center space-x-3 mb-1.5 flex-wrap gap-y-1">
                 <h1 className="text-xl font-bold text-slate-900 truncate">{testData.title}</h1>
+                {(() => {
+                  const isActive = testData.active === true || testData.active === 'true' || String(testData.status).toLowerCase() === 'active';
+                  return (
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase ${
+                      isActive 
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-100' 
+                        : 'bg-slate-100 text-slate-600 border-slate-200'
+                    }`}>
+                      <span className={`w-1 h-1 rounded-full mr-1.5 ${
+                        isActive ? 'bg-emerald-500' : 'bg-slate-400'
+                      }`} />
+                      {isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  );
+                })()}
               </div>
               <p className="text-xs text-slate-400 font-mono mt-0.5">Test ID: {testData.testId || id}</p>
               {testData.description && (
                 <p className="text-xs text-slate-550 font-medium mt-1 leading-normal">{testData.description}</p>
               )}
+
+              {/* Candidate Test Link display */}
+              <div className="mt-3 bg-slate-50 border border-slate-200/60 rounded-xl p-3 flex items-center justify-between gap-3 max-w-xl">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Candidate Test Link</p>
+                  <p className="text-xs font-mono text-[#0B4A99] truncate mt-0.5 select-all">
+                    {testData.linkId || testData.link_id 
+                      ? `https://d1t6qh90xvpukg.cloudfront.net/${testData.linkId || testData.link_id}`
+                      : 'No Link Generated'
+                    }
+                  </p>
+                </div>
+                {(testData.linkId || testData.link_id) && (
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(`https://d1t6qh90xvpukg.cloudfront.net/${testData.linkId || testData.link_id}`);
+                      toast && toast({ type: 'success', title: 'Link Copied', message: 'Test URL copied to clipboard.' });
+                    }}
+                    className="flex-shrink-0 px-2.5 py-1.5 bg-white border border-slate-250 hover:border-[#0B4A99] text-[10px] font-bold text-slate-600 hover:text-[#0B4A99] rounded-lg transition-all shadow-xs cursor-pointer"
+                  >
+                    Copy Link
+                  </button>
+                )}
+              </div>
             </div>
             <div className="flex items-center space-x-2 self-stretch md:self-auto justify-end flex-wrap gap-y-2">
+              {/* Active / Inactive Status Toggle Button */}
+              {(() => {
+                const isActive = testData.active === true || testData.active === 'true' || String(testData.status).toLowerCase() === 'active';
+                return (
+                  <button
+                    onClick={async () => {
+                      setSubmitting(true);
+                      try {
+                        const newActive = !isActive;
+                        const updated = {
+                          ...testData,
+                          active: newActive,
+                          status: newActive ? 'active' : 'not active'
+                        };
+                        // Strip out deep read-only items like "sections" before putting
+                        const { sections, ...metadata } = updated;
+                        await testConfigService.updateTest(testData.testId || id, metadata);
+                        toast && toast({
+                          type: 'success',
+                          title: newActive ? 'Test Activated' : 'Test Deactivated',
+                          message: `The test is now ${newActive ? 'active' : 'inactive'}.`
+                        });
+                        fetchTestDetails();
+                      } catch (err) {
+                        toast && toast({
+                          type: 'error',
+                          title: 'Status Update Failed',
+                          message: err.message
+                        });
+                      } finally {
+                        setSubmitting(false);
+                      }
+                    }}
+                    disabled={submitting}
+                    className={`flex items-center px-3 py-2 border rounded-[10px] font-bold text-xs transition-all shadow-xs cursor-pointer ${
+                      isActive
+                        ? 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'
+                        : 'bg-emerald-50 border-emerald-250 text-emerald-700 hover:bg-emerald-100'
+                    }`}
+                  >
+                    {isActive ? 'Deactivate Test' : 'Activate Test'}
+                  </button>
+                );
+              })()}
+
               <button onClick={() => setCompleteView(true)} className="flex items-center px-3 py-2 bg-white border border-slate-200 text-slate-655 rounded-[10px] font-bold text-xs hover:bg-slate-50 transition-colors shadow-xs cursor-pointer">
                 <FiEye className="w-3.5 h-3.5 mr-1.5" /> Full View
               </button>
@@ -535,7 +619,7 @@ export default function TestDetailsPage() {
                   description="Questions are automatically integrated from the selected Question Set."
                 />
               ) : (
-                <div key={activeSection.sectionId || activeSectionIdx} className="space-y-3.5 animate-fade-in">
+                <div key={activeSection.sectionId || activeSectionIdx} className="space-y-3.5 animate-fade-in max-h-[480px] overflow-y-auto pr-2.5 scrollbar-thin">
                   {activeQuestionsList.map((q, qIndex) => (
                     <QuestionCard key={q.questionId || qIndex} question={q} idx={qIndex} />
                   ))}

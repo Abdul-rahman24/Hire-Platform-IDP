@@ -5,7 +5,7 @@ import {
   FiAward, FiTrendingUp, FiClock, FiAlertTriangle,
   FiInfo, FiX, FiUser, FiChevronDown, FiChevronUp, FiMail, FiDownload
 } from 'react-icons/fi';
-import { fetchTestReport, fetchTestCandidates } from '../api/reportsApi';
+import { fetchTestReport, fetchTestCandidates, API_BASE } from '../api/reportsApi';
 import { useReportsData } from '../hooks/useReportsData';
 import ExcelJS from 'exceljs';
 import { useToast } from '../components/tc/Toast';
@@ -74,7 +74,8 @@ function MetricCard({ icon, iconBg, iconColor, label, value, sub, loading }) {
 }
 
 /* ── Candidate Detail Card (expanded view) ── */
-function CandidateDetail({ c }) {
+function CandidateDetail({ c, testId }) {
+  const navigate = useNavigate();
   const status = c.status || 'UNKNOWN';
   const statusStyles = status === 'PASSED'
     ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
@@ -95,9 +96,28 @@ function CandidateDetail({ c }) {
     ? 'bg-rose-50 text-rose-750 border-rose-200'
     : 'bg-slate-100 text-slate-600 border-slate-200';
 
+  const totalMarksVal = c.sectionWisePerformance?.reduce((sum, sec) => sum + safeNum(sec.totalMarks), 0) || safeNum(c.totalMarks);
+  const hasCoding = !!c.sectionWisePerformance?.some(sec => sec.sectionName?.toUpperCase() === 'CODING');
+
+  const codingSection = c.sectionWisePerformance?.find(
+    (sec) => sec.sectionName?.toUpperCase() === 'CODING'
+  );
+  const mcqSections = c.sectionWisePerformance?.filter(
+    (sec) => sec.sectionName?.toUpperCase() !== 'CODING'
+  ) || [];
+
+  const mcqScore = mcqSections.reduce((sum, sec) => sum + safeNum(sec.score), 0);
+  const mcqTotal = mcqSections.reduce((sum, sec) => sum + safeNum(sec.totalMarks), 0);
+
+  const codingScore = codingSection ? safeNum(codingSection.score) : 0;
+  const codingTotal = codingSection ? safeNum(codingSection.totalMarks) : 0;
+
+  const numCodingQuestions = codingSection?.questions?.length || 0;
+  const answeredCodingCount = codingSection?.questions?.filter(q => q.studentAnswer && q.studentAnswer.trim() !== '').length || 0;
+
   return (
     <tr>
-      <td colSpan="8" className="px-0 py-0">
+      <td colSpan="9" className="px-0 py-0">
         <div className="mx-5 my-3 bg-slate-50 rounded-xl border border-slate-200/60 overflow-hidden">
           {/* Header */}
           <div className="px-5 py-3 border-b border-slate-200/60 flex items-center justify-between">
@@ -125,11 +145,53 @@ function CandidateDetail({ c }) {
             </div>
           </div>
 
-          {/* Stats Grid - Responsive grid layout */}
+          {/* Section Score Breakdown - Responsive */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-[#f8fafc] border-b border-slate-200/40">
+            <div className="bg-white rounded-lg p-3 border border-slate-200/60 shadow-xs flex items-center justify-between">
+              <div>
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">MCQ Marks</p>
+                <p className="text-sm font-black text-[#0B4A99] mt-0.5">{mcqScore}/{mcqTotal}</p>
+              </div>
+              <span className="text-[9px] px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-bold border border-blue-100">
+                MCQ Section
+              </span>
+            </div>
+
+            <div className="bg-white rounded-lg p-3 border border-slate-200/60 shadow-xs flex items-center justify-between">
+              <div>
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Coding Marks</p>
+                <p className="text-sm font-black text-emerald-700 mt-0.5">
+                  {codingSection ? `${codingScore}/${codingTotal}` : 'N/A'}
+                </p>
+              </div>
+              <span className="text-[9px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold border border-emerald-100">
+                Coding Section
+              </span>
+            </div>
+
+            <div className="bg-white rounded-lg p-3 border border-slate-200/60 shadow-xs flex items-center justify-between">
+              <div>
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Answered Coding</p>
+                <p className="text-sm font-black text-amber-700 mt-0.5">
+                  {codingSection ? `${answeredCodingCount}/${numCodingQuestions}` : '-'}
+                </p>
+              </div>
+              <span className="text-[9px] px-2 py-0.5 rounded bg-amber-50 text-amber-700 font-bold border border-amber-100">
+                Submissions
+              </span>
+            </div>
+          </div>
+
+          {/* Stats Grid */}
           <div className="grid grid-cols-2 md:grid-cols-6 bg-white border-y border-slate-200/40">
             <div className="px-4 py-3 text-center border-r border-b md:border-b-0 border-slate-200/60">
-              <p className="text-base font-bold text-slate-900">{safeNum(c.score)}<span className="text-xs text-slate-400 font-medium">/{safeNum(c.totalMarks)}</span></p>
-              <p className="text-[10px] text-slate-400 font-medium mt-0.5">Score ({safeNum(c.percentage)}%)</p>
+              <p className="text-base font-bold text-slate-900">
+                {safeNum(c.score)}
+                <span className="text-xs text-slate-400 font-medium">/{totalMarksVal}</span>
+              </p>
+              <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                Score ({safeNum(c.percentage)}%)
+              </p>
             </div>
             <div className="px-4 py-3 text-center md:border-r border-b md:border-b-0 border-slate-200/60">
               <p className="text-base font-bold text-emerald-600">{safeNum(c.correctAnswers)}</p>
@@ -166,6 +228,15 @@ function CandidateDetail({ c }) {
                 <span>Submitted: <span className="text-slate-600 font-semibold">{new Date(c.submittedAt).toLocaleString()}</span></span>
               )}
             </div>
+
+            {hasCoding && (
+              <button
+                onClick={() => navigate(`/reports/${testId}/candidates/${encodeURIComponent(c.mailId)}/review`)}
+                className="flex items-center px-3 py-1.5 bg-[#0B4A99] hover:bg-[#083A78] text-white rounded-lg text-[10px] font-bold transition-all shadow-xs cursor-pointer border border-[#0B4A99]"
+              >
+                Code Review
+              </button>
+            )}
           </div>
         </div>
       </td>
@@ -189,6 +260,9 @@ export default function ReportDetailPage() {
   // Expanded candidate row
   const [expandedMail, setExpandedMail] = useState(null);
   const toggleExpand = (mailId) => setExpandedMail((prev) => (prev === mailId ? null : mailId));
+  
+  // Validation status filter state
+  const [validationFilter, setValidationFilter] = useState('all');
 
   /* ── Loading State ── */
   if (loading) {
@@ -257,417 +331,136 @@ export default function ReportDetailPage() {
   const totalMarks = report.totalMarks;
   const durationMins = report.durationMinutes;
 
-  const handleDownloadExcel = async () => {
+  const handleDownloadCandidatesExcel = async () => {
     if (!report) return;
     try {
+      const response = await fetch(`${API_BASE}/reports/tests/${encodeURIComponent(testId)}/excel`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch report from server: ${response.statusText}`);
+      }
+      const arrayBuffer = await response.arrayBuffer();
       const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(arrayBuffer);
 
-      // Sheet 1: Summary Overview
-      const wsOverview = workbook.addWorksheet('Summary Overview');
-      wsOverview.views = [{ showGridLines: true }];
+      // Format Sheet 1: Candidate Reports
+      const ws = workbook.getWorksheet(1) || workbook.worksheets[0];
+      if (ws) {
+        ws.views = [{ showGridLines: true }];
 
-      wsOverview.columns = [
-        { key: 'metric', width: 28 },
-        { key: 'val', width: 32 }
-      ];
-
-      // Row 1: Merged Title Banner
-      wsOverview.mergeCells('A1:B1');
-      const titleCell = wsOverview.getCell('A1');
-      titleCell.value = `${report.testName || 'Test'} - Report Summary`;
-      titleCell.font = { name: 'Segoe UI', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
-      titleCell.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FF0B4A99' }
-      };
-      titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
-      wsOverview.getRow(1).height = 36;
-
-      // Row 2: Column Headers
-      const overviewHeaderRow = wsOverview.getRow(2);
-      overviewHeaderRow.values = ['Report Metric', 'Value'];
-      overviewHeaderRow.height = 24;
-      overviewHeaderRow.eachCell((cell) => {
-        cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
-        cell.fill = {
-          type: 'pattern',
-          pattern: 'solid',
-          fgColor: { argb: 'FF1E293B' }
-        };
-        cell.alignment = { vertical: 'middle', horizontal: 'left' };
-      });
-
-      const metrics = [
-        { metric: 'Test Name', val: report.testName || 'N/A' },
-        { metric: 'Test ID', val: testId },
-        { metric: 'Duration Allowed (Min)', val: durationMins || 'N/A' },
-        { metric: 'Total Test Marks', val: totalMarks || 'N/A' },
-        { metric: 'Registered Candidates', val: effectiveTotal },
-        { metric: 'Completed Candidates', val: completed },
-        { metric: 'Pass Rate', val: passPercentage / 100 },
-        { metric: 'Passed Candidates Count', val: passed },
-        { metric: 'Failed Candidates Count', val: failed },
-        { metric: 'Average Score', val: avgScore },
-        { metric: 'Highest Score Scored', val: highest },
-        { metric: 'Lowest Score Scored', val: lowest },
-        { metric: 'Average Time Taken', val: fmtTime(avgTime) },
-        { metric: 'Average Warnings Count', val: avgWarnings },
-        { metric: 'Total Warnings Triggered', val: totalWarnings },
-      ];
-
-      metrics.forEach((m) => {
-        const row = wsOverview.addRow(m);
-        row.height = 20;
-        row.eachCell((cell, colNum) => {
-          cell.font = { name: 'Segoe UI', size: 9.5 };
-          cell.border = {
-            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+        // Style header row (Row 1)
+        const headerRow = ws.getRow(1);
+        headerRow.height = 28;
+        headerRow.eachCell((cell) => {
+          cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FF1E293B' } // Slate-800
           };
-          if (colNum === 1) {
-            cell.font = { name: 'Segoe UI', size: 9.5, bold: true };
-          }
-          if (m.metric === 'Pass Rate' && colNum === 2) {
-            cell.numFmt = '0.0%';
-          }
+          cell.alignment = { vertical: 'middle', horizontal: 'left' };
         });
-      });
 
-      // Sheet 2: Candidate Performance
-      const wsCandidates = workbook.addWorksheet('Candidate Performance');
-      wsCandidates.views = [{ showGridLines: true }];
+        // Style data rows
+        ws.eachRow({ includeEmpty: false }, (row, rowNum) => {
+          if (rowNum === 1) return; // skip header
+          row.height = 20;
+          row.eachCell((cell, colNum) => {
+            cell.font = { name: 'Segoe UI', size: 9 };
+            cell.border = {
+              bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+            };
+            
+            // Numeric alignments
+            if ([5, 6, 7, 9, 10, 11, 12, 14].includes(colNum)) {
+              cell.alignment = { horizontal: 'right', vertical: 'middle' };
+            } else {
+              cell.alignment = { horizontal: 'left', vertical: 'middle' };
+            }
 
-      wsCandidates.columns = [
-        { key: 'name', width: 22 },
-        { key: 'email', width: 26 },
-        { key: 'status', width: 14 },
-        { key: 'score', width: 14 },
-        { key: 'totalMarks', width: 14 },
-        { key: 'percentage', width: 20 },
-        { key: 'correct', width: 16 },
-        { key: 'wrong', width: 16 },
-        { key: 'unanswered', width: 14 },
-        { key: 'timeSec', width: 18 },
-        { key: 'timeFmt', width: 18 },
-        { key: 'proctorStatus', width: 18 },
-        { key: 'warnings', width: 16 },
-        { key: 'started', width: 22 },
-        { key: 'ended', width: 22 },
-        { key: 'submitted', width: 22 }
-      ];
+            // Format Percentage column (Col 7)
+            if (colNum === 7) {
+              if (typeof cell.value === 'number') {
+                if (cell.value > 1.0) {
+                  cell.value = cell.value / 100;
+                }
+                cell.numFmt = '0.0%';
+              }
+            }
+          });
 
-      // Row 1: Merged Title Banner
-      wsCandidates.mergeCells('A1:P1');
-      const candTitleCell = wsCandidates.getCell('A1');
-      candTitleCell.value = `${report.testName || 'Test'} - Candidate Performance Details`;
-      candTitleCell.font = { name: 'Segoe UI', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
-      candTitleCell.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FF0B4A99' }
-      };
-      candTitleCell.alignment = { vertical: 'middle', horizontal: 'center' };
-      wsCandidates.getRow(1).height = 36;
-
-      // Row 2: Column Headers
-      const candHeaderRow = wsCandidates.getRow(2);
-      candHeaderRow.values = [
-        'Candidate Name', 'Email Address', 'Result Status', 'Scored Marks', 'Total Marks',
-        'Score Percentage (%)', 'Correct Answers', 'Wrong Answers', 'Unanswered',
-        'Time Taken (Sec)', 'Time Taken (Fmt)', 'Proctoring Status', 'Warnings Count',
-        'Exam Started', 'Exam Ended', 'Exam Submitted'
-      ];
-      candHeaderRow.height = 26;
-      candHeaderRow.eachCell((cell) => {
-        cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
-        cell.fill = {
-          type: 'pattern',
-          pattern: 'solid',
-          fgColor: { argb: 'FF1E293B' }
-        };
-        cell.alignment = { vertical: 'middle', horizontal: 'left' };
-      });
-
-      // Data starts at Row 3
-      candidates.forEach((c) => {
-        const row = wsCandidates.addRow({
-          name: c.candidateName || 'Unknown',
-          email: c.mailId || 'N/A',
-          status: c.status || 'UNKNOWN',
-          score: safeNum(c.score),
-          totalMarks: safeNum(c.totalMarks),
-          percentage: safeNum(c.percentage) / 100,
-          correct: safeNum(c.correctAnswers),
-          wrong: safeNum(c.wrongAnswers),
-          unanswered: safeNum(c.unanswered),
-          timeSec: safeNum(c.timeTaken),
-          timeFmt: fmtTime(c.timeTaken),
-          proctorStatus: c.proctoringDetails?.status || 'N/A',
-          warnings: safeNum(c.proctoringDetails?.warningCount),
-          started: c.proctoringDetails?.startedAt ? new Date(c.proctoringDetails.startedAt).toLocaleString() : 'N/A',
-          ended: c.proctoringDetails?.endedAt ? new Date(c.proctoringDetails.endedAt).toLocaleString() : 'N/A',
-          submitted: c.submittedAt ? new Date(c.submittedAt).toLocaleString() : 'N/A'
-        });
-        row.height = 20;
-        row.eachCell((cell, colNum) => {
-          cell.font = { name: 'Segoe UI', size: 9 };
-          cell.border = {
-            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } }
-          };
-          if (colNum >= 4 && colNum <= 10 || colNum === 13) {
-            cell.alignment = { horizontal: 'right', vertical: 'middle' };
-          } else {
-            cell.alignment = { horizontal: 'left', vertical: 'middle' };
-          }
-          if (colNum === 6) {
-            cell.numFmt = '0.0%';
+          // Highlight Status cell (Col 13)
+          const statusCell = row.getCell(13);
+          const val = String(statusCell.value || '').toUpperCase();
+          if (val === 'PASSED') {
+            statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } };
+            statusCell.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF065F46' } };
+          } else if (val === 'FAILED') {
+            statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
+            statusCell.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF991B1B' } };
           }
         });
 
-        const statusCell = row.getCell('status');
-        const val = (statusCell.value || '').toUpperCase();
-        if (val === 'PASSED') {
-          statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } };
-          statusCell.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF065F46' } };
-        } else if (val === 'FAILED') {
-          statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FEE2E2' } };
-          statusCell.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: '991B1B' } };
+        // Add summary averages at the bottom
+        const lastRowIndex = ws.lastRow ? ws.lastRow.number : 1;
+        if (lastRowIndex >= 2) {
+          const summaryRowIndex = lastRowIndex + 2;
+          ws.mergeCells(`A${summaryRowIndex}:D${summaryRowIndex}`);
+          const summaryTitle = ws.getCell(`A${summaryRowIndex}`);
+          summaryTitle.value = 'AVERAGE / SUMMARY';
+          summaryTitle.font = { name: 'Segoe UI', size: 10, bold: true };
+          summaryTitle.alignment = { horizontal: 'center', vertical: 'middle' };
+
+          // E: Score (Col 5)
+          ws.getCell(`E${summaryRowIndex}`).value = { formula: `=AVERAGE(E2:E${lastRowIndex})` };
+          ws.getCell(`E${summaryRowIndex}`).numFmt = '0.0';
+
+          // G: Percentage (Col 7)
+          ws.getCell(`G${summaryRowIndex}`).value = { formula: `=AVERAGE(G2:G${lastRowIndex})` };
+          ws.getCell(`G${summaryRowIndex}`).numFmt = '0.0%';
+
+          // N: Warning Count (Col 14)
+          ws.getCell(`N${summaryRowIndex}`).value = { formula: `=AVERAGE(N2:N${lastRowIndex})` };
+          ws.getCell(`N${summaryRowIndex}`).numFmt = '0.0';
+
+          const summaryRow = ws.getRow(summaryRowIndex);
+          summaryRow.height = 24;
+          summaryRow.eachCell((cell) => {
+            cell.font = { name: 'Segoe UI', size: 9, bold: true };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+              bottom: { style: 'double', color: { argb: 'FF94A3B8' } }
+            };
+          });
         }
-      });
 
-      const lastRowIndex = wsCandidates.lastRow.number;
-      if (lastRowIndex >= 3) {
-        const summaryRowIndex = lastRowIndex + 2;
-        wsCandidates.mergeCells(`A${summaryRowIndex}:B${summaryRowIndex}`);
-        const summaryTitle = wsCandidates.getCell(`A${summaryRowIndex}`);
-        summaryTitle.value = 'AVERAGE / SUMMARY';
-        summaryTitle.font = { name: 'Segoe UI', size: 10, bold: true };
-        summaryTitle.alignment = { horizontal: 'center', vertical: 'middle' };
-
-        // Pre-calculated average marks
-        const avgScoredMarks = candidates.length > 0 ? (candidates.reduce((sum, c) => sum + safeNum(c.score), 0) / candidates.length) : 0;
-        // Pre-calculated average percentage (as raw fraction, e.g. 0.85 for 85%)
-        const avgPercentageVal = candidates.length > 0 ? (candidates.reduce((sum, c) => sum + safeNum(c.percentage), 0) / candidates.length) / 100 : 0;
-        // Pre-calculated average warnings count
-        const avgWarningsCountVal = candidates.length > 0 ? (candidates.reduce((sum, c) => sum + safeNum(c.proctoringDetails?.warningCount), 0) / candidates.length) : 0;
-
-        wsCandidates.getCell(`D${summaryRowIndex}`).value = {
-          formula: `=AVERAGE(D3:D${lastRowIndex})`,
-          result: Number(avgScoredMarks.toFixed(1))
-        };
-        wsCandidates.getCell(`D${summaryRowIndex}`).numFmt = '0.0';
-
-        wsCandidates.getCell(`F${summaryRowIndex}`).value = {
-          formula: `=AVERAGE(F3:F${lastRowIndex})`,
-          result: Number(avgPercentageVal.toFixed(3))
-        };
-        wsCandidates.getCell(`F${summaryRowIndex}`).numFmt = '0.0%';
-
-        wsCandidates.getCell(`M${summaryRowIndex}`).value = {
-          formula: `=AVERAGE(M3:M${lastRowIndex})`,
-          result: Number(avgWarningsCountVal.toFixed(1))
-        };
-        wsCandidates.getCell(`M${summaryRowIndex}`).numFmt = '0.0';
-
-        const summaryRow = wsCandidates.getRow(summaryRowIndex);
-        summaryRow.height = 24;
-        summaryRow.eachCell((cell) => {
-          cell.font = { name: 'Segoe UI', size: 9, bold: true };
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
-          cell.border = {
-            top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-            bottom: { style: 'double', color: { argb: 'FF94A3B8' } }
-          };
+        // Auto-fit columns
+        ws.columns.forEach((col) => {
+          let maxLen = 0;
+          col.eachCell({ includeEmpty: true }, (cell) => {
+            const valStr = cell.value ? String(cell.value) : '';
+            if (valStr.length > maxLen) maxLen = valStr.length;
+          });
+          col.width = Math.max(maxLen + 4, 12);
         });
       }
 
-      const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      const url = window.URL.createObjectURL(blob);
+      const styledBuffer = await workbook.xlsx.writeBuffer();
+      const styledBlob = new Blob([styledBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(styledBlob);
 
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${(report.testName || 'Test').replace(/[^a-z0-9]/gi, '_')}_Performance_Report.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${(report.testName || 'Test').replace(/[^a-z0-9]/gi, '_')}_Candidate_Details.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
       window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-
-      toast && toast({ type: 'success', title: 'Report Downloaded', message: 'Candidate performance report downloaded.' });
-    } catch (err) {
-      console.error('Failed to export report to Excel:', err);
-      toast && toast({ type: 'error', title: 'Export Failed', message: err.message });
-    }
-  };
-
-  const handleDownloadCandidatesExcel = async () => {
-    if (!candidates || candidates.length === 0) return;
-    try {
-      const workbook = new ExcelJS.Workbook();
       
-      const worksheet = workbook.addWorksheet('Candidate Details');
-      worksheet.views = [{ showGridLines: true }];
-
-      worksheet.columns = [
-        { key: 'name', width: 22 },
-        { key: 'email', width: 26 },
-        { key: 'status', width: 14 },
-        { key: 'score', width: 14 },
-        { key: 'totalMarks', width: 14 },
-        { key: 'percentage', width: 20 },
-        { key: 'correct', width: 16 },
-        { key: 'wrong', width: 16 },
-        { key: 'unanswered', width: 14 },
-        { key: 'timeSec', width: 18 },
-        { key: 'timeFmt', width: 18 },
-        { key: 'proctorStatus', width: 18 },
-        { key: 'warnings', width: 16 },
-        { key: 'started', width: 22 },
-        { key: 'ended', width: 22 },
-        { key: 'submitted', width: 22 }
-      ];
-
-      // Row 1: Merged Title Banner
-      worksheet.mergeCells('A1:P1');
-      const titleCell = worksheet.getCell('A1');
-      titleCell.value = `${report.testName || 'Test'} - Candidate Performance Report`;
-      titleCell.font = { name: 'Segoe UI', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
-      titleCell.fill = {
-        type: 'pattern',
-        pattern: 'solid',
-        fgColor: { argb: 'FF0B4A99' }
-      };
-      titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
-      worksheet.getRow(1).height = 36;
-
-      // Row 2: Column Headers
-      const candHeaderRow = worksheet.getRow(2);
-      candHeaderRow.values = [
-        'Candidate Name', 'Email Address', 'Result Status', 'Scored Marks', 'Total Marks',
-        'Score Percentage (%)', 'Correct Answers', 'Wrong Answers', 'Unanswered',
-        'Time Taken (Sec)', 'Time Taken (Fmt)', 'Proctoring Status', 'Warnings Count',
-        'Exam Started', 'Exam Ended', 'Exam Submitted'
-      ];
-      candHeaderRow.height = 26;
-      candHeaderRow.eachCell((cell) => {
-        cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
-        cell.fill = {
-          type: 'pattern',
-          pattern: 'solid',
-          fgColor: { argb: 'FF1E293B' }
-        };
-        cell.alignment = { vertical: 'middle', horizontal: 'left' };
-      });
-
-      // Data starts at Row 3
-      candidates.forEach((c) => {
-        const row = worksheet.addRow({
-          name: c.candidateName || 'Unknown',
-          email: c.mailId || 'N/A',
-          status: c.status || 'UNKNOWN',
-          score: safeNum(c.score),
-          totalMarks: safeNum(c.totalMarks),
-          percentage: safeNum(c.percentage) / 100,
-          correct: safeNum(c.correctAnswers),
-          wrong: safeNum(c.wrongAnswers),
-          unanswered: safeNum(c.unanswered),
-          timeSec: safeNum(c.timeTaken),
-          timeFmt: fmtTime(c.timeTaken),
-          proctorStatus: c.proctoringDetails?.status || 'N/A',
-          warnings: safeNum(c.proctoringDetails?.warningCount),
-          started: c.proctoringDetails?.startedAt ? new Date(c.proctoringDetails.startedAt).toLocaleString() : 'N/A',
-          ended: c.proctoringDetails?.endedAt ? new Date(c.proctoringDetails.endedAt).toLocaleString() : 'N/A',
-          submitted: c.submittedAt ? new Date(c.submittedAt).toLocaleString() : 'N/A'
-        });
-        row.height = 20;
-        row.eachCell((cell, colNum) => {
-          cell.font = { name: 'Segoe UI', size: 9 };
-          cell.border = {
-            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } }
-          };
-          if (colNum >= 4 && colNum <= 10 || colNum === 13) {
-            cell.alignment = { horizontal: 'right', vertical: 'middle' };
-          } else {
-            cell.alignment = { horizontal: 'left', vertical: 'middle' };
-          }
-          if (colNum === 6) {
-            cell.numFmt = '0.0%';
-          }
-        });
-
-        const statusCell = row.getCell('status');
-        const val = (statusCell.value || '').toUpperCase();
-        if (val === 'PASSED') {
-          statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } };
-          statusCell.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: 'FF065F46' } };
-        } else if (val === 'FAILED') {
-          statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FEE2E2' } };
-          statusCell.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: '991B1B' } };
-        }
-      });
-
-      const lastRowIndex = worksheet.lastRow.number;
-      if (lastRowIndex >= 3) {
-        const summaryRowIndex = lastRowIndex + 2;
-        worksheet.mergeCells(`A${summaryRowIndex}:B${summaryRowIndex}`);
-        const summaryTitle = worksheet.getCell(`A${summaryRowIndex}`);
-        summaryTitle.value = 'AVERAGE / SUMMARY';
-        summaryTitle.font = { name: 'Segoe UI', size: 10, bold: true };
-        summaryTitle.alignment = { horizontal: 'center', vertical: 'middle' };
-
-        // Pre-calculated averages
-        const avgScoredMarks = candidates.length > 0 ? (candidates.reduce((sum, c) => sum + safeNum(c.score), 0) / candidates.length) : 0;
-        const avgPercentageVal = candidates.length > 0 ? (candidates.reduce((sum, c) => sum + safeNum(c.percentage), 0) / candidates.length) / 100 : 0;
-        const avgWarningsCountVal = candidates.length > 0 ? (candidates.reduce((sum, c) => sum + safeNum(c.proctoringDetails?.warningCount), 0) / candidates.length) : 0;
-
-        worksheet.getCell(`D${summaryRowIndex}`).value = {
-          formula: `=AVERAGE(D3:D${lastRowIndex})`,
-          result: Number(avgScoredMarks.toFixed(1))
-        };
-        worksheet.getCell(`D${summaryRowIndex}`).numFmt = '0.0';
-
-        worksheet.getCell(`F${summaryRowIndex}`).value = {
-          formula: `=AVERAGE(F3:F${lastRowIndex})`,
-          result: Number(avgPercentageVal.toFixed(3))
-        };
-        worksheet.getCell(`F${summaryRowIndex}`).numFmt = '0.0%';
-
-        worksheet.getCell(`M${summaryRowIndex}`).value = {
-          formula: `=AVERAGE(M3:M${lastRowIndex})`,
-          result: Number(avgWarningsCountVal.toFixed(1))
-        };
-        worksheet.getCell(`M${summaryRowIndex}`).numFmt = '0.0';
-
-        const summaryRow = worksheet.getRow(summaryRowIndex);
-        summaryRow.height = 24;
-        summaryRow.eachCell((cell) => {
-          cell.font = { name: 'Segoe UI', size: 9, bold: true };
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
-          cell.border = {
-            top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-            bottom: { style: 'double', color: { argb: 'FF94A3B8' } }
-          };
-        });
-      }
-
-      const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      const url = window.URL.createObjectURL(blob);
-
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${(report.testName || 'Test').replace(/[^a-z0-9]/gi, '_')}_Candidate_Details.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-
       toast && toast({ type: 'success', title: 'Exported Candidates', message: 'Candidate details exported to Excel.' });
     } catch (err) {
       console.error('Failed to export candidates details:', err);
-      toast && toast({ type: 'error', title: 'Export Failed', message: err.message });
+      toast && toast({ type: 'error', title: 'Export Failed', message: err.message || 'Could not download Excel report.' });
     }
   };
 
@@ -733,13 +526,6 @@ export default function ReportDetailPage() {
           </div>
         </div>
         <div className="flex items-center space-x-2.5">
-          <button
-            onClick={handleDownloadExcel}
-            className="bg-[#059669] hover:bg-[#047857] text-white px-4 py-2 rounded-lg font-semibold text-xs transition-all flex items-center shadow-sm flex-shrink-0 cursor-pointer"
-          >
-            <FiDownload className="w-3.5 h-3.5 mr-2" />
-            Download Report
-          </button>
           <button
             onClick={() => { refresh(); refreshCandidates(); }}
             className="bg-[#0B4A99] text-white px-4 py-2 rounded-lg font-semibold text-xs hover:bg-[#083A78] transition-all flex items-center shadow-sm flex-shrink-0 cursor-pointer"
@@ -1041,14 +827,26 @@ export default function ReportDetailPage() {
               </span>
             )}
           </div>
-          {!candidatesLoading && candidates.length > 0 && (
-            <button
-              onClick={handleDownloadCandidatesExcel}
-              className="flex items-center px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 hover:text-emerald-800 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-xs border border-emerald-150"
+          <div className="flex items-center space-x-3">
+            <select
+              value={validationFilter}
+              onChange={(e) => setValidationFilter(e.target.value)}
+              className="bg-white border border-slate-200 rounded-lg text-[11px] font-bold px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-100 cursor-pointer text-slate-700"
             >
-              <FiDownload className="w-3.5 h-3.5 mr-1.5" /> Export Candidates
-            </button>
-          )}
+              <option value="all">All Candidates</option>
+              <option value="pending">Pending Coding Review</option>
+              <option value="validated">Validated / MCQ Only</option>
+            </select>
+
+            {!candidatesLoading && candidates.length > 0 && (
+              <button
+                onClick={handleDownloadCandidatesExcel}
+                className="flex items-center px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 hover:text-emerald-800 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-xs border border-emerald-150"
+              >
+                <FiDownload className="w-3.5 h-3.5 mr-1.5" /> Export Candidates
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Candidates error */}
@@ -1067,18 +865,19 @@ export default function ReportDetailPage() {
           </div>
         )}
 
-        <div className="overflow-x-auto overflow-y-hidden">
-          <table className="w-full min-w-[850px] lg:min-w-full">
+        <div className="overflow-x-auto overflow-y-hidden scrollbar-thin">
+          <table className="w-full table-fixed min-w-[950px]">
             <thead>
-              <tr className="border-b border-slate-100 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/20">
-                <th className="px-5 py-3 w-8"></th>
-                <th className="px-5 py-3">Candidate</th>
-                <th className="px-5 py-3">Score</th>
-                <th className="px-5 py-3">Percentage</th>
-                <th className="px-5 py-3">Status</th>
-                <th className="px-5 py-3">Time</th>
-                <th className="px-5 py-3">Warnings</th>
-                <th className="px-5 py-3">Proctoring Status</th>
+              <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/20">
+                <th className="px-2 py-3 w-10 text-center"></th>
+                <th className="px-3 py-3 text-left w-auto">Candidate</th>
+                <th className="px-2 py-3 text-center w-[85px]">MCQ %</th>
+                <th className="px-2 py-3 text-center w-[85px]">Coding %</th>
+                <th className="px-2 py-3 text-center w-[90px]">Overall %</th>
+                <th className="px-2 py-3 text-center w-[100px]">Status</th>
+                <th className="px-2 py-3 text-center w-[85px]">Time</th>
+                <th className="px-2 py-3 text-center w-[90px]">Warnings</th>
+                <th className="px-2 py-3 text-center w-[130px]">Proctoring Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -1087,14 +886,15 @@ export default function ReportDetailPage() {
                 <>
                   {[...Array(3)].map((_, i) => (
                     <tr key={i} className="animate-pulse">
-                      <td className="px-5 py-4"><div className="h-4 w-4 bg-slate-100 rounded" /></td>
-                      <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-40" /></td>
-                      <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-14" /></td>
-                      <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-12" /></td>
-                      <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-16" /></td>
-                      <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-14" /></td>
-                      <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-8" /></td>
-                      <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-16" /></td>
+                      <td className="px-2 py-4 text-center"><div className="h-4 w-4 bg-slate-100 rounded mx-auto" /></td>
+                      <td className="px-3 py-4 text-left"><div className="h-4 bg-slate-100 rounded-md w-40" /></td>
+                      <td className="px-2 py-4 text-center"><div className="h-4 bg-slate-100 rounded-md w-10 mx-auto" /></td>
+                      <td className="px-2 py-4 text-center"><div className="h-4 bg-slate-100 rounded-md w-10 mx-auto" /></td>
+                      <td className="px-2 py-4 text-center"><div className="h-4 bg-slate-100 rounded-md w-10 mx-auto" /></td>
+                      <td className="px-2 py-4 text-center"><div className="h-4 bg-slate-100 rounded-md w-16 mx-auto" /></td>
+                      <td className="px-2 py-4 text-center"><div className="h-4 bg-slate-100 rounded-md w-10 mx-auto" /></td>
+                      <td className="px-2 py-4 text-center"><div className="h-4 bg-slate-100 rounded-md w-6 mx-auto" /></td>
+                      <td className="px-2 py-4 text-center"><div className="h-4 bg-slate-100 rounded-md w-20 mx-auto" /></td>
                     </tr>
                   ))}
                 </>
@@ -1103,7 +903,7 @@ export default function ReportDetailPage() {
               {/* Empty state */}
               {!candidatesLoading && !candidatesError && candidates.length === 0 && (
                 <tr>
-                  <td colSpan="8" className="px-5 py-12 text-center">
+                  <td colSpan="9" className="px-5 py-12 text-center">
                     <FiUser className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                     <p className="text-sm font-semibold text-slate-500">No candidate data yet</p>
                     <p className="text-xs text-slate-400 mt-1">Candidate results will appear here once submissions are received.</p>
@@ -1112,7 +912,30 @@ export default function ReportDetailPage() {
               )}
 
               {/* Data rows */}
-              {candidates.map((c) => {
+              {candidates.filter((c) => {
+                const codingSection = c.sectionWisePerformance?.find(
+                  (sec) => sec.sectionName?.toUpperCase() === 'CODING'
+                );
+                const hasCoding = !!codingSection;
+                const attemptedCoding = codingSection && codingSection.questions?.some(q => q.studentAnswer && q.studentAnswer.trim() !== '');
+
+                const isCodingValidated = !hasCoding || !!(
+                  c.codingValidated || 
+                  c.isCodingValidated || 
+                  codingSection?.validated || 
+                  codingSection?.isCodingValidated ||
+                  (codingSection && codingSection.score > 0) ||
+                  (codingSection && !attemptedCoding)
+                );
+
+                if (validationFilter === 'pending') {
+                  return hasCoding && attemptedCoding && !isCodingValidated;
+                }
+                if (validationFilter === 'validated') {
+                  return !hasCoding || !attemptedCoding || isCodingValidated;
+                }
+                return true;
+              }).map((c) => {
                 const isExpanded = expandedMail === c.mailId;
                 const status = c.status || 'UNKNOWN';
                 const statusBadge = status === 'PASSED'
@@ -1121,18 +944,39 @@ export default function ReportDetailPage() {
                   ? 'bg-red-50 text-red-700 border-red-100'
                   : 'bg-slate-100 text-slate-600 border-slate-200';
 
+                const totalMarksVal = c.sectionWisePerformance?.reduce((sum, sec) => sum + safeNum(sec.totalMarks), 0) || safeNum(c.totalMarks);
+                const hasCoding = !!c.sectionWisePerformance?.some(sec => sec.sectionName?.toUpperCase() === 'CODING');
+
+                const mcqSections = c.sectionWisePerformance?.filter(
+                  (sec) => sec.sectionName?.toUpperCase() !== 'CODING'
+                ) || [];
+                const mcqScore = mcqSections.reduce((sum, sec) => sum + safeNum(sec.score), 0);
+                const mcqTotal = mcqSections.reduce((sum, sec) => sum + safeNum(sec.totalMarks), 0);
+                const mcqPct = mcqSections.length > 0 
+                  ? (mcqTotal > 0 ? ((mcqScore / mcqTotal) * 100).toFixed(1) + '%' : '0.0%')
+                  : '-';
+
+                const codingSection = c.sectionWisePerformance?.find(
+                  (sec) => sec.sectionName?.toUpperCase() === 'CODING'
+                );
+                const codingScore = codingSection ? safeNum(codingSection.score) : 0;
+                const codingTotal = codingSection ? safeNum(codingSection.totalMarks) : 0;
+                const codingPct = codingSection 
+                  ? (codingTotal > 0 ? ((codingScore / codingTotal) * 100).toFixed(1) + '%' : '0.0%')
+                  : '-';
+
                 return (
                   <React.Fragment key={c.mailId}>
                     <tr
                       onClick={() => toggleExpand(c.mailId)}
                       className="hover:bg-slate-50/50 group transition-colors cursor-pointer"
                     >
-                      <td className="px-5 py-4 w-8">
+                      <td className="px-2 py-4 w-10 text-center">
                         {isExpanded
-                          ? <FiChevronUp className="w-3.5 h-3.5 text-[#0B4A99]" />
-                          : <FiChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600" />}
+                          ? <FiChevronUp className="w-3.5 h-3.5 text-[#0B4A99] mx-auto" />
+                          : <FiChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 mx-auto" />}
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-3 py-4 text-left min-w-0">
                         <div className="flex items-center">
                           <div className="w-7 h-7 rounded-lg bg-blue-50 text-[#0B4A99] flex items-center justify-center mr-2.5 flex-shrink-0">
                             <FiMail className="w-3 h-3" />
@@ -1145,14 +989,17 @@ export default function ReportDetailPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-5 py-4">
-                        <span className="font-bold text-slate-800 text-xs">{safeNum(c.score)}</span>
-                        <span className="text-[10px] text-slate-400 font-medium ml-0.5">/{safeNum(c.totalMarks)}</span>
+
+                      <td className="px-2 py-4 text-center">
+                        <span className="font-semibold text-slate-700 text-xs">{mcqPct}</span>
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-2 py-4 text-center">
+                        <span className="font-semibold text-slate-700 text-xs">{codingPct}</span>
+                      </td>
+                      <td className="px-2 py-4 text-center">
                         <span className="font-bold text-slate-800 text-xs">{safeNum(c.percentage)}%</span>
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-2 py-4 text-center">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${statusBadge}`}>
                           <span className={`w-1 h-1 rounded-full mr-1.5 ${
                             status === 'PASSED' ? 'bg-emerald-500' : status === 'FAILED' ? 'bg-red-500' : 'bg-slate-400'
@@ -1160,15 +1007,15 @@ export default function ReportDetailPage() {
                           {status}
                         </span>
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-2 py-4 text-center">
                         <span className="text-xs text-slate-600 font-medium">{fmtTime(c.timeTaken)}</span>
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-2 py-4 text-center">
                         <span className={`text-xs font-semibold ${safeNum(c.proctoringDetails?.warningCount) > 0 ? 'text-amber-600' : 'text-slate-500'}`}>
                           {safeNum(c.proctoringDetails?.warningCount)}
                         </span>
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-2 py-4 text-center">
                         {c.proctoringDetails?.status ? (
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
                             c.proctoringDetails.status.toLowerCase().includes('success') ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
@@ -1191,7 +1038,7 @@ export default function ReportDetailPage() {
                         )}
                       </td>
                     </tr>
-                    {isExpanded && <CandidateDetail c={c} />}
+                    {isExpanded && <CandidateDetail c={c} testId={testId} />}
                   </React.Fragment>
                 );
               })}

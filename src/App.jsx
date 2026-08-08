@@ -6,6 +6,7 @@ import TestListPage from './pages/TestListPage';
 import TestDetailsPage from './pages/TestDetailsPage';
 import ReportsListPage from './pages/ReportsListPage';
 import ReportDetailPage from './pages/ReportDetailPage';
+import CodeReviewPage from './pages/CodeReviewPage';
 import LoginPage from './pages/LoginPage';
 import { ToastProvider } from './components/tc/Toast';
 
@@ -40,6 +41,7 @@ function App() {
                     <Route path="/test-configuration/details/:id" element={<TestDetailsPage />} />
                     <Route path="/reports" element={<ReportsListPage />} />
                     <Route path="/reports/:testId" element={<ReportDetailPage />} />
+                    <Route path="/reports/:testId/candidates/:mailId/review" element={<CodeReviewPage />} />
                     <Route path="*" element={<Navigate to="/question-bank" replace />} />
                   </Routes>
                 </MainLayout>

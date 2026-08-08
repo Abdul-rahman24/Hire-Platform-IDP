@@ -26,6 +26,8 @@ function LocalSkeletonRow() {
       <td className="px-3 py-4"><div className="h-3.5 bg-slate-100 rounded w-12" /></td>
       <td className="px-3 py-4"><div className="h-3.5 bg-slate-100 rounded w-12" /></td>
       <td className="px-3 py-4"><div className="h-3.5 bg-slate-100 rounded w-12" /></td>
+      <td className="px-3 py-4"><div className="h-3.5 bg-slate-100 rounded w-12" /></td>
+      <td className="px-3 py-4"><div className="h-3.5 bg-slate-100 rounded w-14" /></td>
       <td className="px-4 py-4 text-right"><div className="h-6 bg-slate-100 rounded w-20 ml-auto" /></td>
     </tr>
   );
@@ -247,15 +249,16 @@ export default function TestListPage() {
 
       {/* Table Container */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-        <div className="overflow-x-auto overflow-y-hidden">
-          <table className="w-full text-left table-fixed min-w-[800px]">
-            <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/40">
-                <th className="px-5 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[36%]">Test Name</th>
-                <th className="px-3 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[18%]">Sections</th>
+        <div className="overflow-x-auto overflow-y-auto max-h-[550px] scrollbar-thin">
+          <table className="w-full text-left table-fixed min-w-[850px]">
+            <thead className="sticky top-0 bg-white z-10 shadow-xs">
+              <tr className="border-b border-slate-100 bg-[#f8fafc]/95 backdrop-blur-xs">
+                <th className="px-5 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[30%]">Test Name</th>
+                <th className="px-3 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[12%]">Sections</th>
                 <th className="px-3 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[12%]">Duration</th>
                 <th className="px-3 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[12%]">Total Marks</th>
                 <th className="px-3 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[12%]">Total Questions</th>
+                <th className="px-3 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[12%]">Status</th>
                 <th className="px-4 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-right w-[100px]">Actions</th>
               </tr>
             </thead>
@@ -264,7 +267,7 @@ export default function TestListPage() {
                 Array(5).fill(0).map((_, i) => <LocalSkeletonRow key={i} />)
               ) : paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-0">
+                  <td colSpan={7} className="py-0">
                     <EmptyState
                       icon={<FiFileText className="w-7 h-7" />}
                       title="No tests found"
@@ -326,6 +329,25 @@ export default function TestListPage() {
 
                     {/* Questions Count */}
                     <td className="px-3 py-4 text-xs font-semibold text-slate-700">{qCount} Questions</td>
+
+                    {/* Status */}
+                    <td className="px-3 py-4">
+                      {(() => {
+                        const isActive = test.active === true || test.active === 'true' || String(test.status).toLowerCase() === 'active';
+                        return (
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase ${
+                            isActive
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                              : 'bg-slate-100 text-slate-650 border-slate-200'
+                          }`}>
+                            <span className={`w-1 h-1 rounded-full mr-1.5 ${
+                              isActive ? 'bg-emerald-500' : 'bg-slate-400'
+                            }`} />
+                            {isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        );
+                      })()}
+                    </td>
 
                     {/* Actions */}
                     <td className="px-4 py-4 text-right" onClick={e => e.stopPropagation()}>

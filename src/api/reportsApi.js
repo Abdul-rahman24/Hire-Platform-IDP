@@ -1,4 +1,4 @@
-const API_BASE = 'https://u28oqmzvh9.execute-api.ap-southeast-1.amazonaws.com';
+export const API_BASE = 'https://u28oqmzvh9.execute-api.ap-southeast-1.amazonaws.com';
 
 /**
  * Unwrap the API envelope { success, message, data } and surface errors.

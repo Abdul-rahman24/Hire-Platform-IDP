@@ -116,6 +116,13 @@ export const testConfigService = {
   async createTest(payload) {
     let resultData;
     const fallbackId = `TEST-${Date.now()}`;
+    
+    const finalPayload = {
+      ...payload,
+      active: payload.active !== undefined ? payload.active : false,
+      status: payload.status || 'not active'
+    };
+
     const newTestObj = {
       testId: fallbackId,
       id: fallbackId,
@@ -124,15 +131,17 @@ export const testConfigService = {
       durationMinutes: Number(payload.durationMinutes || 90),
       totalMarks: Number(payload.totalMarks || 100),
       questionSetId: payload.questionSetId || 'SET001',
+      active: false,
+      status: 'not active'
     };
 
     try {
-      const response = await testApi.post('/tests', payload);
+      const response = await testApi.post('/tests', finalPayload);
       resultData = response.data;
     } catch (err) {
       if (err.message && (err.message.toLowerCase().includes('not found') || err.message.toLowerCase().includes('question set'))) {
         try {
-          const fallbackPayload = { ...payload, questionSetId: 'SET001' };
+          const fallbackPayload = { ...finalPayload, questionSetId: 'SET001' };
           const response = await testApi.post('/tests', fallbackPayload);
           resultData = { ...response.data, questionSetId: payload.questionSetId };
         } catch {
@@ -145,9 +154,24 @@ export const testConfigService = {
 
     const finalTestId = resultData?.testId || resultData?.id || fallbackId;
     memoryTestSetMap[finalTestId] = payload.questionSetId;
-    memoryTestsStore = [{ ...newTestObj, testId: finalTestId, id: finalTestId }, ...memoryTestsStore.filter(t => t.testId !== finalTestId)];
+    memoryTestsStore = [
+      { 
+        ...newTestObj, 
+        testId: finalTestId, 
+        id: finalTestId, 
+        active: resultData?.active ?? newTestObj.active,
+        status: resultData?.status || newTestObj.status
+      }, 
+      ...memoryTestsStore.filter(t => t.testId !== finalTestId)
+    ];
 
-    return { ...resultData, testId: finalTestId, questionSetId: payload.questionSetId };
+    return { 
+      ...resultData, 
+      testId: finalTestId, 
+      questionSetId: payload.questionSetId,
+      active: resultData?.active ?? finalPayload.active,
+      status: resultData?.status || finalPayload.status
+    };
   },
 
   /**

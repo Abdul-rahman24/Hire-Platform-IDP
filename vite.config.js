@@ -19,6 +19,12 @@ export default defineConfig({
         secure: false,
         rewrite: (path) => path.replace(/^\/test-api/, ''),
       },
+      '/reports-api': {
+        target: 'https://u28oqmzvh9.execute-api.ap-southeast-1.amazonaws.com',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/reports-api/, ''),
+      },
     },
   },
 })
