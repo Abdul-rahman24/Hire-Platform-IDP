@@ -1,5 +1,6 @@
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 from typing import Any
@@ -13,9 +14,9 @@ logger = get_logger(__name__)
 
 
 class QuestionBankClient:
-    """Live Question Bank client with resilient fallback for external 500 service errors."""
+    """Live Question Bank client with in-memory TTL caching and resilient fallback."""
 
-    def __init__(self, base_url: str | None = None, timeout: float = 10.0) -> None:
+    def __init__(self, base_url: str | None = None, timeout: float = 10.0, cache_ttl: float = 60.0) -> None:
         try:
             settings = get_settings()
             default_url = getattr(
@@ -28,6 +29,8 @@ class QuestionBankClient:
 
         self.base_url = (base_url or os.getenv("QUESTION_SERVICE_URL") or default_url).rstrip("/")
         self.timeout = timeout
+        self.cache_ttl = cache_ttl
+        self._cache: dict[str, tuple[float, dict[str, Any]]] = {}
 
         self._fallback_sets = {
             "SET_MCQ_01": {
@@ -99,6 +102,19 @@ class QuestionBankClient:
         }
 
     def get_question_set(self, question_set_id: str) -> dict[str, Any]:
+        now = time.time()
+        if question_set_id in self._cache:
+            cached_time, cached_data = self._cache[question_set_id]
+            if now - cached_time < self.cache_ttl:
+                logger.debug("Serving question set '%s' from in-memory cache", question_set_id)
+                return cached_data
+
+        data = self._fetch_remote_question_set(question_set_id)
+        if isinstance(data, dict):
+            self._cache[question_set_id] = (now, data)
+        return data
+
+    def _fetch_remote_question_set(self, question_set_id: str) -> dict[str, Any]:
         url = f"{self.base_url}/question-sets/{question_set_id}"
         logger.info("Calling Question Bank Service: GET %s", url)
         req = urllib.request.Request(url, headers={"Accept": "application/json"})

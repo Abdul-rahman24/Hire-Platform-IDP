@@ -1,5 +1,6 @@
 import random
 import secrets
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from app.core.exceptions import QuestionSetNotFoundException, RepositoryNotFoundException, ServiceException
@@ -38,21 +39,6 @@ class TestService(TestServiceInterface):
         self.question_bank_client = question_bank_client or QuestionBankClient()
 
     def _generate_unique_link_id(self) -> str:
-        existing_link_ids = set()
-        try:
-            existing_tests = self.repository.list()
-            for t in existing_tests:
-                lid = getattr(t, "link_id", None) or getattr(t, "linkId", None)
-                if lid:
-                    existing_link_ids.add(str(lid))
-        except Exception as e:
-            logger.warning("Error fetching existing tests for link_id uniqueness check: %s", e)
-
-        for _ in range(100):
-            candidate = _generate_6digit_link_id()
-            if candidate not in existing_link_ids:
-                return candidate
-
         return _generate_6digit_link_id()
 
     def create_test(self, payload: TestCreateRequest) -> TestResponse:
@@ -76,7 +62,6 @@ class TestService(TestServiceInterface):
         if not dump.get("link_id"):
             dump["link_id"] = self._generate_unique_link_id()
         
-        # Ensure test_status is explicitly set to Active if not provided or defaulted
         if not dump.get("test_status") or dump.get("test_status") in ("published", "draft"):
             dump["test_status"] = getattr(payload, "test_status", None) or "Active"
             if dump["test_status"] in ("published", "draft"):
@@ -180,8 +165,26 @@ class TestService(TestServiceInterface):
                 sections=[],
             )
 
-        # Case B: Multi-Section Test
+        # Case B: Multi-Section Test with Concurrent Fetching
         sorted_sections = sorted(section_entities, key=lambda s: getattr(s, "order", 1))
+        
+        # Parallel question fetching for sections
+        def _fetch_sec_questions(sec: SectionEntity) -> tuple[str, list[Any]]:
+            try:
+                q_list = self.question_bank_client.list_questions(sec.question_set_id)
+                return sec.id, q_list
+            except Exception as e:
+                logger.warning("Error fetching questions for set '%s': %s", sec.question_set_id, e)
+                return sec.id, []
+
+        questions_map: dict[str, list[Any]] = {}
+        if sorted_sections:
+            with ThreadPoolExecutor(max_workers=min(len(sorted_sections), 5)) as executor:
+                futures = [executor.submit(_fetch_sec_questions, sec) for sec in sorted_sections]
+                for f in futures:
+                    sec_id, q_list = f.result()
+                    questions_map[sec_id] = q_list
+
         section_responses: list[SectionWithQuestionsResponse] = []
         total_duration = 0
         total_marks = 0
@@ -189,12 +192,7 @@ class TestService(TestServiceInterface):
         for sec in sorted_sections:
             total_duration += sec.duration_minutes
             total_marks += sec.marks
-
-            raw_questions = []
-            try:
-                raw_questions = self.question_bank_client.list_questions(sec.question_set_id)
-            except Exception as e:
-                logger.warning("Error fetching questions for set '%s': %s", sec.question_set_id, e)
+            raw_questions = questions_map.get(sec.id, [])
 
             processed_questions = self._apply_shuffle_and_formatting(
                 raw_questions=raw_questions,

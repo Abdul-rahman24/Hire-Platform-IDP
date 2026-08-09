@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from mangum import Mangum
 
 from app.api.router import create_api_router
@@ -42,6 +43,9 @@ def create_application() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # Enable GZip response compression for payloads > 500 bytes
+    app.add_middleware(GZipMiddleware, minimum_size=500)
+
     app.include_router(create_api_router())
     register_exception_handlers(app)
     return app
@@ -49,4 +53,3 @@ def create_application() -> FastAPI:
 
 app = create_application()
 handler = Mangum(app)
-
