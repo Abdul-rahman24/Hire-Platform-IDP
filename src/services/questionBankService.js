@@ -141,8 +141,12 @@ export const questionBankService = {
    * @param {Object} rawPayload
    */
   async updateQuestion(questionSetId, questionId, rawPayload) {
-    const payload = formatQuestionPayload(rawPayload);
-    const response = await api.put(`/questions/${encodeURIComponent(questionSetId)}/${encodeURIComponent(questionId)}`, payload);
+    const payload = formatQuestionPayload({
+      ...rawPayload,
+      questionId: questionId || rawPayload.questionId || rawPayload.id,
+      questionSetId: questionSetId || rawPayload.questionSetId
+    });
+    const response = await api.post('/questions', payload);
     return response.data;
   },
 
