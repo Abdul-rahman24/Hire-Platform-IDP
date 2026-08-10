@@ -97,13 +97,13 @@ function CandidateDetail({ c, testId }) {
     : 'bg-slate-100 text-slate-600 border-slate-200';
 
   const totalMarksVal = c.sectionWisePerformance?.reduce((sum, sec) => sum + safeNum(sec.totalMarks), 0) || safeNum(c.totalMarks);
-  const hasCoding = !!c.sectionWisePerformance?.some(sec => sec.sectionName?.toUpperCase() === 'CODING');
+  const hasCoding = !!c.sectionWisePerformance?.some(sec => sec.sectionName?.toUpperCase().includes('CODING'));
 
   const codingSection = c.sectionWisePerformance?.find(
-    (sec) => sec.sectionName?.toUpperCase() === 'CODING'
+    (sec) => sec.sectionName?.toUpperCase().includes('CODING')
   );
   const mcqSections = c.sectionWisePerformance?.filter(
-    (sec) => sec.sectionName?.toUpperCase() !== 'CODING'
+    (sec) => !sec.sectionName?.toUpperCase().includes('CODING')
   ) || [];
 
   const mcqScore = mcqSections.reduce((sum, sec) => sum + safeNum(sec.score), 0);
@@ -914,7 +914,7 @@ export default function ReportDetailPage() {
               {/* Data rows */}
               {candidates.filter((c) => {
                 const codingSection = c.sectionWisePerformance?.find(
-                  (sec) => sec.sectionName?.toUpperCase() === 'CODING'
+                  (sec) => sec.sectionName?.toUpperCase().includes('CODING')
                 );
                 const hasCoding = !!codingSection;
                 const attemptedCoding = codingSection && codingSection.questions?.some(q => q.studentAnswer && q.studentAnswer.trim() !== '');
@@ -945,10 +945,10 @@ export default function ReportDetailPage() {
                   : 'bg-slate-100 text-slate-600 border-slate-200';
 
                 const totalMarksVal = c.sectionWisePerformance?.reduce((sum, sec) => sum + safeNum(sec.totalMarks), 0) || safeNum(c.totalMarks);
-                const hasCoding = !!c.sectionWisePerformance?.some(sec => sec.sectionName?.toUpperCase() === 'CODING');
+                const hasCoding = !!c.sectionWisePerformance?.some(sec => sec.sectionName?.toUpperCase().includes('CODING'));
 
                 const mcqSections = c.sectionWisePerformance?.filter(
-                  (sec) => sec.sectionName?.toUpperCase() !== 'CODING'
+                  (sec) => !sec.sectionName?.toUpperCase().includes('CODING')
                 ) || [];
                 const mcqScore = mcqSections.reduce((sum, sec) => sum + safeNum(sec.score), 0);
                 const mcqTotal = mcqSections.reduce((sum, sec) => sum + safeNum(sec.totalMarks), 0);
@@ -957,7 +957,7 @@ export default function ReportDetailPage() {
                   : '-';
 
                 const codingSection = c.sectionWisePerformance?.find(
-                  (sec) => sec.sectionName?.toUpperCase() === 'CODING'
+                  (sec) => sec.sectionName?.toUpperCase().includes('CODING')
                 );
                 const codingScore = codingSection ? safeNum(codingSection.score) : 0;
                 const codingTotal = codingSection ? safeNum(codingSection.totalMarks) : 0;

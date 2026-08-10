@@ -33,7 +33,7 @@ export default function CodeReviewPage() {
 
         // Prepopulate scores
         const codingSec = candData?.sectionWisePerformance?.find(
-          (sec) => sec.sectionName?.toUpperCase() === 'CODING'
+          (sec) => sec.sectionName?.toUpperCase().includes('CODING')
         );
         const initialScores = {};
         if (codingSec?.questions) {
@@ -53,7 +53,7 @@ export default function CodeReviewPage() {
   }, [testId, mailId]);
 
   const codingSection = candidate?.sectionWisePerformance?.find(
-    (sec) => sec.sectionName?.toUpperCase() === 'CODING'
+    (sec) => sec.sectionName?.toUpperCase().includes('CODING')
   );
 
   const codingTotalMarks = codingSection ? safeNum(codingSection.totalMarks) : 0;
@@ -243,8 +243,8 @@ export default function CodeReviewPage() {
           <div className="bg-slate-50/50 rounded-lg p-3 text-center border border-slate-100">
             <p className="text-xs text-slate-400 font-medium">MCQ Marks</p>
             <p className="text-base font-bold text-slate-800 mt-1">
-              {safeNum(candidate?.sectionWisePerformance?.find(s => s.sectionName?.toUpperCase() !== 'CODING')?.score)}
-              <span className="text-xs text-slate-400 font-medium">/{safeNum(candidate?.sectionWisePerformance?.find(s => s.sectionName?.toUpperCase() !== 'CODING')?.totalMarks)}</span>
+              {safeNum(candidate?.sectionWisePerformance?.find(s => !s.sectionName?.toUpperCase().includes('CODING'))?.score)}
+              <span className="text-xs text-slate-400 font-medium">/{safeNum(candidate?.sectionWisePerformance?.find(s => !s.sectionName?.toUpperCase().includes('CODING'))?.totalMarks)}</span>
             </p>
           </div>
           <div className="bg-slate-50/50 rounded-lg p-3 text-center border border-slate-100">
