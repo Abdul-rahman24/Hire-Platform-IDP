@@ -3,10 +3,12 @@ name: Question Bank Service CI/CD
 on:
   push:
     branches:
-      - main
+      - qb-service  # Trigger only on the qb-service branch
     paths:
       - 'QB-service/**'
   pull_request:
+    branches:
+      - qb-service  # Trigger PRs targeting the qb-service branch
     paths:
       - 'QB-service/**'
 
@@ -63,7 +65,8 @@ jobs:
   deploy:
     name: Deploy Code Update to AWS
     needs: build-and-test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # This ensures deployment ONLY happens on pushes to qb-service
+    if: github.ref == 'refs/heads/qb-service' && github.event_name == 'push'
     runs-on: ubuntu-latest
 
     steps:
