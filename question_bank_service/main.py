@@ -226,6 +226,6 @@ def seed_demo_data():
         return {"message": "Successfully seeded independent MCQ and CODING sets!"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))  
-
+  
 # Mangum Handler for AWS Lambda
 handler = Mangum(app)
