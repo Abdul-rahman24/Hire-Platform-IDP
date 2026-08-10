@@ -3,14 +3,14 @@ name: Question Bank Service CI/CD
 on:
   push:
     branches:
-      - QB-service  # Trigger only on the qb-service branch
+      - QB-service
     paths:
-      - 'QB-service/**'
+      - '**'  # Set to trigger on ANY file change so we guarantee it fires
   pull_request:
     branches:
-      - QB-service  # Trigger PRs targeting the qb-service branch
+      - QB-service
     paths:
-      - 'QB-service/**'
+      - '**'
 
 jobs:
   build-and-test:
@@ -29,14 +29,13 @@ jobs:
           python-version: '3.13' 
 
       - name: Install Dependencies
-        working-directory: ./QB-service
+        # Removed working-directory; running from the root
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest pytest-cov httpx moto 
 
       - name: Run Pytest and Generate Coverage Report
-        working-directory: ./QB-service
         env:
           TABLE_NAME: "QuestionBankTable_SW_Test"
         run: |
@@ -48,14 +47,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}   
         with:
-          projectBaseDir: QB-service
+          projectBaseDir: .  # Scanning from the root
 
       # --- SNYK STEPS ---
       - name: Install Snyk CLI
         uses: snyk/actions/setup@master
 
       - name: Snyk Security Scan
-        working-directory: ./QB-service
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: |
@@ -65,7 +63,6 @@ jobs:
   deploy:
     name: Deploy Code Update to AWS
     needs: build-and-test
-    # This ensures deployment ONLY happens on pushes to qb-service
     if: github.ref == 'refs/heads/QB-service' && github.event_name == 'push'
     runs-on: ubuntu-latest
 
@@ -79,7 +76,6 @@ jobs:
           python-version: '3.13'
 
       - name: Package Question Bank Service Lambda
-        working-directory: ./QB-service
         run: |
           pip install --target ./package -r requirements.txt
           cd package
@@ -97,9 +93,10 @@ jobs:
 
       - name: Update Lambda Code via AWS CLI
         run: |
+          # The payload.zip is now correctly built at the root
           aws lambda update-function-code \
             --function-name QuestionBankService_SW \
-            --zip-file fileb://QB-service/payload.zip
+            --zip-file fileb://payload.zip
 
       - name: Wait for Lambda Code Update to Complete
         run: |
