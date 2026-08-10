@@ -1,11 +1,12 @@
 import os
 import boto3
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field, model_validator
-from typing import List, Optional, Literal
+from fastapi.middleware.cors import CORSMiddleware
 from mangum import Mangum
+
+# Import from your modular architecture
+from . import schemas
 from .repository import QuestionRepository
-from question_bank_service import schemas
 
 # Initialize FastAPI with the AWS API Gateway stage prefix safety net
 app = FastAPI(
@@ -14,74 +15,27 @@ app = FastAPI(
     root_path="/default"
 )
 
-# Initialize AWS DynamoDB
+# ==========================================
+# CORS CONFIGURATION (Crucial for Frontend Integration)
+# ==========================================
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins (In production, replace "*" with your React frontend URL)
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all HTTP methods (GET, POST, PUT, DELETE, etc.)
+    allow_headers=["*"],  # Allows all headers
+)
+
+# Initialize AWS DynamoDB (for the endpoints still directly querying the database)
 DYNAMODB_TABLE_NAME = os.environ.get("TABLE_NAME", "QuestionBankTable_SW")
 dynamodb = boto3.resource("dynamodb", region_name="ap-southeast-1")
 table = dynamodb.Table(DYNAMODB_TABLE_NAME)
 
 # ==========================================
-# 1. PYDANTIC SCHEMAS (Data Validation)
+# API ENDPOINTS
 # ==========================================
 
-class Option(BaseModel):
-    optionId: str = Field(..., example="A")
-    text: str = Field(..., example="Java Virtual Machine")
-
-# NEW: Set Creation Schema now requires a specific setType
-class QuestionSetCreate(BaseModel):
-    questionSetId: str = Field(..., example="SET001", description="Unique ID for the question set")
-    setType: Literal["MCQ", "CODING"] = Field(..., example="MCQ", description="Set must contain purely MCQ or CODING questions")
-
-# NEW: Dynamic Schema for Creating Questions (Handles MCQ & CODING)
-class QuestionCreate(BaseModel):
-    questionId: str = Field(..., example="Q001")
-    questionSetId: str = Field(..., example="SET001")
-    questionType: Literal["MCQ", "CODING"] = Field(..., example="MCQ")
-    question: str = Field(..., example="What is JVM?")
-    marks: int = Field(2, example=2, description="Marks assigned to this question")
-    
-    # Optional fields depending on questionType
-    options: Optional[List[Option]] = None
-    correctOptionId: Optional[str] = None
-    language: Optional[Literal["python", "java"]] = None
-    duration: Optional[int] = Field(None, example=15, description="Duration in minutes for coding tests")
-
-    @model_validator(mode='after')
-    def validate_question_structure(self):
-        if self.questionType == "MCQ":
-            if not self.options or not self.correctOptionId:
-                raise ValueError("MCQ format requires 'options' and 'correctOptionId'")
-        elif self.questionType == "CODING":
-            if not self.language or not self.duration:
-                raise ValueError("CODING format requires 'language' (python/java) and 'duration'")
-        return self
-
-# NEW: Dynamic Schema for Updating Questions
-class QuestionUpdate(BaseModel):
-    questionType: Literal["MCQ", "CODING"] = Field(..., example="MCQ")
-    question: str = Field(..., example="What is JVM?")
-    marks: int = Field(2, example=2, description="Marks assigned to this question")
-    
-    options: Optional[List[Option]] = None
-    correctOptionId: Optional[str] = None
-    language: Optional[Literal["python", "java"]] = None
-    duration: Optional[int] = None
-
-    @model_validator(mode='after')
-    def validate_question_structure(self):
-        if self.questionType == "MCQ":
-            if not self.options or not self.correctOptionId:
-                raise ValueError("MCQ format requires 'options' and 'correctOptionId'")
-        elif self.questionType == "CODING":
-            if not self.language or not self.duration:
-                raise ValueError("CODING format requires 'language' (python/java) and 'duration'")
-        return self
-
-# ==========================================
-# 2. API ENDPOINTS
-# ==========================================
-
-# 1. Create Question Set (Now includes setType)
+# 1. Create Question Set
 @app.post("/question-sets", status_code=201, tags=["Question Sets"])
 def create_question_set(payload: schemas.QuestionSetCreateSchema):
     try:
@@ -101,7 +55,7 @@ def create_question_set(payload: schemas.QuestionSetCreateSchema):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# 2. List All Available Question Sets (MOVED UP for safe FastAPI routing)
+# 2. List All Available Question Sets
 @app.get("/question-sets", tags=["Question Sets"])
 def list_all_question_sets():
     try:
@@ -186,28 +140,12 @@ def get_single_question(questionSetId: str, questionId: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# 6. Add a Question inside a Set (Now enforces Set Type Matching)
+# 6. Add a Question inside a Set
 @app.post("/questions", status_code=201, tags=["Questions"])
 def create_question(payload: schemas.QuestionCreateSchema):
     try:
-        # STEP 1: Cross-Entity Validation (Check parent set's type)
-        parent_set = table.get_item(Key={"questionSetId": payload.questionSetId, "questionId": "METADATA"})
-        
-        if "Item" not in parent_set:
-            raise HTTPException(status_code=404, detail=f"Target Question Set '{payload.questionSetId}' does not exist.")
-            
-        expected_type = parent_set["Item"].get("setType")
-        if expected_type and expected_type != payload.questionType:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Type Mismatch: Set '{payload.questionSetId}' only accepts {expected_type} questions, but you submitted a {payload.questionType} question."
-            )
-
-        # STEP 2: Save the item (exclude_none strips null fields out to keep the DB clean)
-        item_data = payload.model_dump(exclude_none=True) if hasattr(payload, "model_dump") else payload.dict(exclude_none=True)
-        item_data["itemType"] = "QUESTION"
-        
-        table.put_item(Item=item_data)
+        # Delegates to the repository for Set Type Validation and saving
+        item_data = QuestionRepository.create_question(payload)
         return {
             "message": f"Question {payload.questionId} added to {payload.questionSetId}",
             "data": item_data
@@ -222,9 +160,8 @@ def create_question(payload: schemas.QuestionCreateSchema):
 @app.put("/questions/{questionSetId}/{questionId}", tags=["Questions"])
 def update_question(questionSetId: str, questionId: str, payload: schemas.QuestionUpdateSchema):
     try:
-        # 🛡️ This single line now delegates all fetching, validation, and saving to repository_2.py
+        # Delegates to the repository for validation and saving
         updated_item = QuestionRepository.update_question(questionSetId, questionId, payload)
-        
         return {
             "message": "Question updated successfully!", 
             "data": updated_item
@@ -233,6 +170,7 @@ def update_question(questionSetId: str, questionId: str, payload: schemas.Questi
         raise he
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 # 8. Delete Single Question
 @app.delete("/questions/{questionSetId}/{questionId}", tags=["Questions"])
@@ -244,7 +182,7 @@ def delete_question(questionSetId: str, questionId: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# 9. Seed Demo Data (Updated to show MCQ and CODING sets)
+# 9. Seed Demo Data
 @app.post("/seed-demo", tags=["Developer Tools"])
 def seed_demo_data():
     try:
@@ -281,7 +219,6 @@ def seed_demo_data():
             "questionType": "CODING",
             "question": "Write a program to reverse a linked list.",
             "language": "python",
-            "duration": 30,
             "marks": 10,
             "itemType": "QUESTION"
         })
