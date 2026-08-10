@@ -10,7 +10,7 @@ class QuestionRepository:
     def create_question(question_data: schemas.QuestionCreateSchema):
         try:
             # 1. Cross-Entity Validation: Fetch parent set to check type
-            parent_set = table.get_item(Key={"PK": question_data.questionSetId, "SK": "METADATA"})
+            parent_set = table.get_item(Key={"questionSetId": question_data.questionSetId, "questionId": "METADATA"})
             
             if "Item" not in parent_set:
                 raise HTTPException(status_code=404, detail="Target Question Set does not exist.")
@@ -25,9 +25,9 @@ class QuestionRepository:
             # 2. Dump data dynamically (exclude_none drops 'options' if it's a Coding question)
             item_data = question_data.model_dump(exclude_none=True)
             
-            # 3. Add DynamoDB Primary Keys
-            item_data["PK"] = question_data.questionSetId
-            item_data["SK"] = question_data.questionId
+            # 3. Add DynamoDB Primary Keys mapping to your actual table schema
+            item_data["questionSetId"] = question_data.questionSetId
+            item_data["questionId"] = question_data.questionId
             item_data["itemType"] = "QUESTION"
             
             table.put_item(Item=item_data)
@@ -40,7 +40,7 @@ class QuestionRepository:
     def get_questions_by_set(question_set_id: str):
         try:
             response = table.query(
-                KeyConditionExpression=Key("PK").eq(question_set_id)
+                KeyConditionExpression=Key("questionSetId").eq(question_set_id)
             )
             return response.get("Items", [])
         except ClientError as e:
@@ -49,7 +49,7 @@ class QuestionRepository:
     @staticmethod
     def get_single_question(question_set_id: str, question_id: str):
         try:
-            response = table.get_item(Key={"PK": question_set_id, "SK": question_id})
+            response = table.get_item(Key={"questionSetId": question_set_id, "questionId": question_id})
             if "Item" not in response:
                 raise HTTPException(status_code=404, detail="Question not found")
             return response["Item"]
@@ -59,8 +59,8 @@ class QuestionRepository:
     @staticmethod
     def update_question(question_set_id: str, question_id: str, payload: schemas.QuestionUpdateSchema):
         try:
-            # 1. Fetch the existing question from DynamoDB
-            existing_item_response = table.get_item(Key={"PK": question_set_id, "SK": question_id})
+            # 1. Fetch the existing question from DynamoDB using correct schema keys
+            existing_item_response = table.get_item(Key={"questionSetId": question_set_id, "questionId": question_id})
 
             if "Item" not in existing_item_response:
                 raise HTTPException(status_code=404, detail="Question not found")
@@ -79,12 +79,10 @@ class QuestionRepository:
             
             # 4. Merge the updated data with the required DynamoDB keys
             updated_item = {
-                "PK": question_set_id,
-                "SK": question_id,
                 "questionSetId": question_set_id,
                 "questionId": question_id,
                 "itemType": "QUESTION",
-                **updated_data  # This unpacks all the validated payload fields
+                **updated_data
             }
             
             # 5. Overwrite the item in DynamoDB
