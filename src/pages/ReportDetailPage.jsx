@@ -28,6 +28,13 @@ const fmtTime = (seconds) => {
   return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
 };
 
+const isCodingSection = (sec) => {
+  if (!sec) return false;
+  const hasCodingQuestion = sec.questions?.some(q => (q.questionType || q.type || '').toUpperCase() === 'CODING');
+  const hasCodingName = sec.sectionName?.toUpperCase().includes('CODING');
+  return !!(hasCodingQuestion || hasCodingName);
+};
+
 /* ── Anomaly Banner ── */
 function AnomalyBanner({ icon, children, onDismiss }) {
   return (
@@ -97,13 +104,13 @@ function CandidateDetail({ c, testId }) {
     : 'bg-slate-100 text-slate-600 border-slate-200';
 
   const totalMarksVal = c.sectionWisePerformance?.reduce((sum, sec) => sum + safeNum(sec.totalMarks), 0) || safeNum(c.totalMarks);
-  const hasCoding = !!c.sectionWisePerformance?.some(sec => sec.sectionName?.toUpperCase().includes('CODING'));
+  const hasCoding = !!c.sectionWisePerformance?.some(sec => isCodingSection(sec));
 
   const codingSection = c.sectionWisePerformance?.find(
-    (sec) => sec.sectionName?.toUpperCase().includes('CODING')
+    (sec) => isCodingSection(sec)
   );
   const mcqSections = c.sectionWisePerformance?.filter(
-    (sec) => !sec.sectionName?.toUpperCase().includes('CODING')
+    (sec) => !isCodingSection(sec)
   ) || [];
 
   const mcqScore = mcqSections.reduce((sum, sec) => sum + safeNum(sec.score), 0);
@@ -866,7 +873,7 @@ export default function ReportDetailPage() {
         )}
 
         <div className="overflow-x-auto overflow-y-hidden scrollbar-thin">
-          <table className="w-full table-fixed min-w-[950px]">
+          <table className="w-full table-fixed min-w-[880px]">
             <thead>
               <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/20">
                 <th className="px-2 py-3 w-10 text-center"></th>
@@ -914,7 +921,7 @@ export default function ReportDetailPage() {
               {/* Data rows */}
               {candidates.filter((c) => {
                 const codingSection = c.sectionWisePerformance?.find(
-                  (sec) => sec.sectionName?.toUpperCase().includes('CODING')
+                  (sec) => isCodingSection(sec)
                 );
                 const hasCoding = !!codingSection;
                 const attemptedCoding = codingSection && codingSection.questions?.some(q => q.studentAnswer && q.studentAnswer.trim() !== '');
@@ -945,10 +952,10 @@ export default function ReportDetailPage() {
                   : 'bg-slate-100 text-slate-600 border-slate-200';
 
                 const totalMarksVal = c.sectionWisePerformance?.reduce((sum, sec) => sum + safeNum(sec.totalMarks), 0) || safeNum(c.totalMarks);
-                const hasCoding = !!c.sectionWisePerformance?.some(sec => sec.sectionName?.toUpperCase().includes('CODING'));
+                const hasCoding = !!c.sectionWisePerformance?.some(sec => isCodingSection(sec));
 
                 const mcqSections = c.sectionWisePerformance?.filter(
-                  (sec) => !sec.sectionName?.toUpperCase().includes('CODING')
+                  (sec) => !isCodingSection(sec)
                 ) || [];
                 const mcqScore = mcqSections.reduce((sum, sec) => sum + safeNum(sec.score), 0);
                 const mcqTotal = mcqSections.reduce((sum, sec) => sum + safeNum(sec.totalMarks), 0);
@@ -957,7 +964,7 @@ export default function ReportDetailPage() {
                   : '-';
 
                 const codingSection = c.sectionWisePerformance?.find(
-                  (sec) => sec.sectionName?.toUpperCase().includes('CODING')
+                  (sec) => isCodingSection(sec)
                 );
                 const codingScore = codingSection ? safeNum(codingSection.score) : 0;
                 const codingTotal = codingSection ? safeNum(codingSection.totalMarks) : 0;

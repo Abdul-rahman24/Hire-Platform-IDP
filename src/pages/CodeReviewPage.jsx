@@ -6,6 +6,13 @@ import { useToast } from '../components/tc/Toast';
 
 const safeNum = (v) => (typeof v === 'number' && isFinite(v) ? v : 0);
 
+const isCodingSection = (sec) => {
+  if (!sec) return false;
+  const hasCodingQuestion = sec.questions?.some(q => (q.questionType || q.type || '').toUpperCase() === 'CODING');
+  const hasCodingName = sec.sectionName?.toUpperCase().includes('CODING');
+  return !!(hasCodingQuestion || hasCodingName);
+};
+
 export default function CodeReviewPage() {
   const { testId, mailId } = useParams();
   const navigate = useNavigate();
@@ -33,12 +40,15 @@ export default function CodeReviewPage() {
 
         // Prepopulate scores
         const codingSec = candData?.sectionWisePerformance?.find(
-          (sec) => sec.sectionName?.toUpperCase().includes('CODING')
+          (sec) => isCodingSection(sec)
         );
         const initialScores = {};
         if (codingSec?.questions) {
           codingSec.questions.forEach((q) => {
-            initialScores[q.questionId] = q.score !== undefined ? q.score : '';
+            const hasAnswered = q.studentAnswer && q.studentAnswer.trim().length > 0;
+            initialScores[q.questionId] = q.score !== undefined 
+              ? q.score 
+              : (hasAnswered ? '' : 0);
           });
         }
         setCodingScores(initialScores);
@@ -53,7 +63,7 @@ export default function CodeReviewPage() {
   }, [testId, mailId]);
 
   const codingSection = candidate?.sectionWisePerformance?.find(
-    (sec) => sec.sectionName?.toUpperCase().includes('CODING')
+    (sec) => isCodingSection(sec)
   );
 
   const codingTotalMarks = codingSection ? safeNum(codingSection.totalMarks) : 0;
@@ -78,9 +88,18 @@ export default function CodeReviewPage() {
     let totalScore = 0;
 
     codingSection.questions.forEach((q) => {
-      const valStr = String(codingScores[q.questionId] || '').trim();
+      const valStr = String(codingScores[q.questionId] !== undefined ? codingScores[q.questionId] : '').trim();
+      const hasAnswered = q.studentAnswer && q.studentAnswer.trim().length > 0;
+
       if (valStr === '') {
-        errors[q.questionId] = 'Please enter a score.';
+        if (!hasAnswered) {
+          scoresPayload.push({
+            questionId: q.questionId,
+            score: 0
+          });
+        } else {
+          errors[q.questionId] = 'Please enter a score.';
+        }
       } else {
         const valNum = Number(valStr);
         if (isNaN(valNum) || valNum < 0 || valNum > maxQuestionMark || !Number.isInteger(valNum)) {
@@ -103,8 +122,9 @@ export default function CodeReviewPage() {
     setIsSubmitting(true);
     try {
       for (const q of codingSection.questions) {
-        const valStr = String(codingScores[q.questionId] || '').trim();
-        const scoreVal = Number(valStr);
+        const valStr = String(codingScores[q.questionId] !== undefined ? codingScores[q.questionId] : '').trim();
+        const hasAnswered = q.studentAnswer && q.studentAnswer.trim().length > 0;
+        const scoreVal = valStr === '' && !hasAnswered ? 0 : Number(valStr);
 
         const urlRaw = `${API_BASE}/reports/tests/${testId}/candidates/${mailId}/questions/${q.questionId}/score`;
         const urlEncoded = `${API_BASE}/reports/tests/${encodeURIComponent(testId)}/candidates/${encodeURIComponent(mailId)}/questions/${encodeURIComponent(q.questionId)}/score`;
@@ -243,8 +263,8 @@ export default function CodeReviewPage() {
           <div className="bg-slate-50/50 rounded-lg p-3 text-center border border-slate-100">
             <p className="text-xs text-slate-400 font-medium">MCQ Marks</p>
             <p className="text-base font-bold text-slate-800 mt-1">
-              {safeNum(candidate?.sectionWisePerformance?.find(s => !s.sectionName?.toUpperCase().includes('CODING'))?.score)}
-              <span className="text-xs text-slate-400 font-medium">/{safeNum(candidate?.sectionWisePerformance?.find(s => !s.sectionName?.toUpperCase().includes('CODING'))?.totalMarks)}</span>
+              {safeNum(candidate?.sectionWisePerformance?.find(s => !isCodingSection(s))?.score)}
+              <span className="text-xs text-slate-400 font-medium">/{safeNum(candidate?.sectionWisePerformance?.find(s => !isCodingSection(s))?.totalMarks)}</span>
             </p>
           </div>
           <div className="bg-slate-50/50 rounded-lg p-3 text-center border border-slate-100">
@@ -310,31 +330,38 @@ export default function CodeReviewPage() {
                   </div>
 
                   {/* Score Field */}
-                  <div className="flex items-center space-x-4 pt-2">
-                    <label className="text-xs font-bold text-slate-700">
-                      Validate & Assign Score:
-                    </label>
-                    <div className="relative flex items-center">
-                      <input
-                        type="number"
-                        min="0"
-                        max={maxQuestionMark}
-                        step="1"
-                        placeholder={`0 - ${maxQuestionMark}`}
-                        value={codingScores[q.questionId] !== undefined ? codingScores[q.questionId] : ''}
-                        onChange={(e) => handleScoreChange(q.questionId, e.target.value)}
-                        disabled={isSubmitting}
-                        className={`w-32 px-3 py-1.5 bg-white border ${
-                          validationErrors[q.questionId] ? 'border-red-500 focus:ring-red-200' : 'border-slate-350 focus:ring-blue-100'
-                        } rounded-lg text-xs font-bold focus:outline-none focus:ring-2 transition-all`}
-                      />
+                  {hasAnswered ? (
+                    <div className="flex items-center space-x-4 pt-2">
+                      <label className="text-xs font-bold text-slate-700">
+                        Validate & Assign Score:
+                      </label>
+                      <div className="relative flex items-center">
+                        <input
+                          type="number"
+                          min="0"
+                          max={maxQuestionMark}
+                          step="1"
+                          placeholder={`0 - ${maxQuestionMark}`}
+                          value={codingScores[q.questionId] !== undefined ? codingScores[q.questionId] : ''}
+                          onChange={(e) => handleScoreChange(q.questionId, e.target.value)}
+                          disabled={isSubmitting}
+                          className={`w-32 px-3 py-1.5 bg-white border ${
+                            validationErrors[q.questionId] ? 'border-red-500 focus:ring-red-200' : 'border-slate-350 focus:ring-blue-100'
+                          } rounded-lg text-xs font-bold focus:outline-none focus:ring-2 transition-all`}
+                        />
+                      </div>
+                      {validationErrors[q.questionId] && (
+                        <span className="text-red-500 text-[10px] font-bold">
+                          {validationErrors[q.questionId]}
+                        </span>
+                      )}
                     </div>
-                    {validationErrors[q.questionId] && (
-                      <span className="text-red-500 text-[10px] font-bold">
-                        {validationErrors[q.questionId]}
-                      </span>
-                    )}
-                  </div>
+                  ) : (
+                    <div className="text-[11px] font-semibold text-slate-400 pt-2 flex items-center space-x-1.5 bg-slate-50/50 p-2 rounded-lg border border-slate-100 w-fit">
+                      <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                      <span>Score automatically set to 0 (Unsubmitted)</span>
+                    </div>
+                  )}
                 </div>
               );
             })}
