@@ -84,13 +84,32 @@ class TestService(TestServiceInterface):
     def list_tests(self) -> list[TestResponse]:
         logger.info("Listing all tests")
         entities = self.repository.list()
+        if not entities:
+            return []
+
+        # High Performance Optimization: Bulk fetch all sections in 1 scan instead of N scans
+        sections_by_test: dict[str, list[SectionEntity]] = {}
+        if self.section_repository is not None:
+            try:
+                all_sections = self.section_repository.list()
+                for sec in all_sections:
+                    tid = getattr(sec, "test_id", None) or getattr(sec, "testId", None)
+                    if tid:
+                        if tid not in sections_by_test:
+                            sections_by_test[tid] = []
+                        sections_by_test[tid].append(sec)
+            except Exception as e:
+                logger.warning("Bulk section pre-fetch fallback: %s", e)
+
         results = []
         for entity in entities:
-            sections = (
-                self.section_repository.list_by_test_id(entity.id)
-                if self.section_repository is not None
-                else []
-            )
+            # Get pre-fetched sections if available, else fallback to per-test list
+            sections = sections_by_test.get(entity.id)
+            if sections is None and self.section_repository is not None:
+                sections = self.section_repository.list_by_test_id(entity.id)
+            elif sections is None:
+                sections = []
+            
             results.append(self._to_response(entity, sections))
         return results
 

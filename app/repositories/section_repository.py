@@ -1,3 +1,5 @@
+from boto3.dynamodb.conditions import Attr
+
 from app.models.section import SectionEntity
 from app.repositories.dynamodb_base import DynamoDBRepository
 from app.repositories.interfaces import SectionRepositoryInterface
@@ -19,7 +21,6 @@ class SectionRepository(
         )
 
     def list_by_test_id(self, test_id: str) -> list[SectionEntity]:
-        items = self.list_by_attribute("test_id", test_id)
-        if not items:
-            items = self.list_by_attribute("testId", test_id)
+        filter_expr = Attr("test_id").eq(test_id) | Attr("testId").eq(test_id)
+        items = self._scan_items(filter_expression=filter_expr)
         return sorted(items, key=lambda s: getattr(s, "order", 1))

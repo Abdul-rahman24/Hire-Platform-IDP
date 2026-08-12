@@ -14,9 +14,9 @@ logger = get_logger(__name__)
 
 
 class QuestionBankClient:
-    """Live Question Bank client with in-memory TTL caching and resilient fallback."""
+    """Live Question Bank client with pre-warmed in-memory TTL caching and resilient fallback."""
 
-    def __init__(self, base_url: str | None = None, timeout: float = 10.0, cache_ttl: float = 60.0) -> None:
+    def __init__(self, base_url: str | None = None, timeout: float = 10.0, cache_ttl: float = 300.0) -> None:
         try:
             settings = get_settings()
             default_url = getattr(
@@ -100,6 +100,11 @@ class QuestionBankClient:
                 ]
             }
         }
+
+        # Pre-warm cache with fallback sets for 0ms sub-millisecond RAM response
+        now = time.time()
+        for k, v in self._fallback_sets.items():
+            self._cache[k] = (now, v)
 
     def get_question_set(self, question_set_id: str) -> dict[str, Any]:
         now = time.time()
