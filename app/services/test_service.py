@@ -1,4 +1,3 @@
-import random
 import secrets
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
@@ -189,11 +188,9 @@ class TestService(TestServiceInterface):
                 except Exception as e:
                     logger.warning("Error fetching questions for single set '%s': %s", test_entity.question_set_id, e)
 
-            formatted_questions = self._apply_shuffle_and_formatting(
+            formatted_questions = self._format_questions(
                 raw_questions=raw_questions,
                 question_type="MCQ",
-                shuffle_questions=False,
-                shuffle_options=False,
             )
 
             duration = test_entity.duration_minutes or 90
@@ -249,11 +246,9 @@ class TestService(TestServiceInterface):
             total_marks += sec.marks
             raw_questions = questions_map.get(sec.id, [])
 
-            processed_questions = self._apply_shuffle_and_formatting(
+            processed_questions = self._format_questions(
                 raw_questions=raw_questions,
                 question_type=sec.question_type or "MCQ",
-                shuffle_questions=sec.shuffle_questions,
-                shuffle_options=sec.shuffle_options,
             )
 
             sec_resp = SectionWithQuestionsResponse(
@@ -290,12 +285,10 @@ class TestService(TestServiceInterface):
             sections=section_responses,
         )
 
-    def _apply_shuffle_and_formatting(
+    def _format_questions(
         self,
         raw_questions: list[Any],
         question_type: str,
-        shuffle_questions: bool,
-        shuffle_options: bool,
     ) -> list[dict[str, Any]]:
         questions: list[dict[str, Any]] = []
         q_type_upper = (question_type or "MCQ").upper()
@@ -312,7 +305,7 @@ class TestService(TestServiceInterface):
                     "marks": getattr(q, "marks", 0),
                 }
 
-            # Preserve ALL raw fields from Question Bank Service without dropping any data
+            # Preserve full raw question payload with original deterministic question and option order
             formatted_q = dict(q_dict)
 
             # Ensure primary keys are populated
@@ -327,17 +320,5 @@ class TestService(TestServiceInterface):
                 formatted_q["type"] = q_type_upper
 
             questions.append(formatted_q)
-
-        # Shuffle question order if requested
-        if shuffle_questions:
-            random.shuffle(questions)
-
-        # Shuffle options ONLY when questionType is MCQ
-        if shuffle_options and q_type_upper in ("MCQ", "MULTIPLE_CHOICE"):
-            for q in questions:
-                if "options" in q and isinstance(q["options"], list):
-                    opts = list(q["options"])
-                    random.shuffle(opts)
-                    q["options"] = opts
 
         return questions
