@@ -4,38 +4,27 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from mangum import Mangum
 
-# Import from your modular architecture
 from . import schemas
 from .repository import QuestionRepository
 
-# Initialize FastAPI with the AWS API Gateway stage prefix safety net
 app = FastAPI(
     title="Question Bank Microservice",
     description="Serverless Question Bank API for College Placement Platform",
     root_path="/default"
 )
 
-# ==========================================
-# CORS CONFIGURATION (Crucial for Frontend Integration)
-# ==========================================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins (In production, replace "*" with your React frontend URL)
+    allow_origins=["*"],  
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all HTTP methods (GET, POST, PUT, DELETE, etc.)
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["*"],  
+    allow_headers=["*"],  
 )
 
-# Initialize AWS DynamoDB (for the endpoints still directly querying the database)
 DYNAMODB_TABLE_NAME = os.environ.get("TABLE_NAME", "QuestionBankTable_SW")
 dynamodb = boto3.resource("dynamodb", region_name="ap-southeast-1")
 table = dynamodb.Table(DYNAMODB_TABLE_NAME)
 
-# ==========================================
-# API ENDPOINTS
-# ==========================================
-
-# 1. Create Question Set
 @app.post("/question-sets", status_code=201, tags=["Question Sets"])
 def create_question_set(payload: schemas.QuestionSetCreateSchema):
     try:
@@ -54,8 +43,6 @@ def create_question_set(payload: schemas.QuestionSetCreateSchema):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# 2. List All Available Question Sets
 @app.get("/question-sets", tags=["Question Sets"])
 def list_all_question_sets():
     try:
@@ -71,8 +58,6 @@ def list_all_question_sets():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# 3. Fetch all Questions in a Set
 @app.get("/question-sets/{questionSetId}", tags=["Question Sets"])
 def get_question_set(questionSetId: str):
     try:
@@ -97,8 +82,6 @@ def get_question_set(questionSetId: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# 4. Delete an Entire Question Set
 @app.delete("/question-sets/{questionSetId}", tags=["Question Sets"])
 def delete_question_set(questionSetId: str):
     try:
@@ -124,8 +107,6 @@ def delete_question_set(questionSetId: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# 5. Fetch a SINGLE Question
 @app.get("/questions/{questionSetId}/{questionId}", tags=["Questions"])
 def get_single_question(questionSetId: str, questionId: str):
     try:
@@ -139,12 +120,9 @@ def get_single_question(questionSetId: str, questionId: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# 6. Add a Question inside a Set
 @app.post("/questions", status_code=201, tags=["Questions"])
 def create_question(payload: schemas.QuestionCreateSchema):
     try:
-        # Delegates to the repository for Set Type Validation and saving
         item_data = QuestionRepository.create_question(payload)
         return {
             "message": f"Question {payload.questionId} added to {payload.questionSetId}",
@@ -155,12 +133,9 @@ def create_question(payload: schemas.QuestionCreateSchema):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# 7. Update Existing Question
 @app.put("/questions/{questionSetId}/{questionId}", tags=["Questions"])
 def update_question(questionSetId: str, questionId: str, payload: schemas.QuestionUpdateSchema):
     try:
-        # Delegates to the repository for validation and saving
         updated_item = QuestionRepository.update_question(questionSetId, questionId, payload)
         return {
             "message": "Question updated successfully!", 
@@ -171,8 +146,6 @@ def update_question(questionSetId: str, questionId: str, payload: schemas.Questi
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# 8. Delete Single Question
 @app.delete("/questions/{questionSetId}/{questionId}", tags=["Questions"])
 def delete_question(questionSetId: str, questionId: str):
     try:
@@ -181,12 +154,9 @@ def delete_question(questionSetId: str, questionId: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-# 9. Seed Demo Data
 @app.post("/seed-demo", tags=["Developer Tools"])
 def seed_demo_data():
     try:
-        # Create an MCQ Set
         table.put_item(Item={
             "questionSetId": "SET_MCQ_01",
             "questionId": "METADATA",
@@ -205,7 +175,6 @@ def seed_demo_data():
             "itemType": "QUESTION"
         })
 
-        # Create a CODING Set
         table.put_item(Item={
             "questionSetId": "SET_CODING_01",
             "questionId": "METADATA",
@@ -222,10 +191,27 @@ def seed_demo_data():
             "marks": 10,
             "itemType": "QUESTION"
         })
+        
+        # New descriptive data block added here
+        table.put_item(Item={
+            "questionSetId": "SET_DESC_01",
+            "questionId": "METADATA",
+            "title": "HR Written Assessment",
+            "setType": "DESCRIPTIVE",
+            "itemType": "QUESTION_SET_HEADER"
+        })
+        table.put_item(Item={
+            "questionSetId": "SET_DESC_01",
+            "questionId": "Q001",
+            "questionType": "DESCRIPTIVE",
+            "question": "Describe a time you overcame a technical challenge.",
+            "wordLimit": 500,
+            "marks": 5,
+            "itemType": "QUESTION"
+        })
             
-        return {"message": "Successfully seeded independent MCQ and CODING sets!"}
+        return {"message": "Successfully seeded MCQ, CODING, and DESCRIPTIVE sets!"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))  
   
-# Mangum Handler for AWS Lambda
 handler = Mangum(app)
