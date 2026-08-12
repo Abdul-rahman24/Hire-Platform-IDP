@@ -82,13 +82,14 @@ class TestService(TestServiceInterface):
         return self._to_response(test_entity, sections)
 
     def list_tests(self) -> list[TestResponse]:
-        logger.info("Listing all tests")
+        logger.info("Listing all tests with ultra-fast batch resolution")
         entities = self.repository.list()
         if not entities:
             return []
 
-        # High Performance Optimization: Bulk fetch all sections in 1 scan instead of N scans
+        # 1. Bulk fetch all sections in 1 scan pass
         sections_by_test: dict[str, list[SectionEntity]] = {}
+        all_sections: list[SectionEntity] = []
         if self.section_repository is not None:
             try:
                 all_sections = self.section_repository.list()
@@ -101,16 +102,43 @@ class TestService(TestServiceInterface):
             except Exception as e:
                 logger.warning("Bulk section pre-fetch fallback: %s", e)
 
+        # 2. Gather ALL unique question set IDs across all sections of all tests
+        unique_set_ids: set[str] = set()
+        for sec in all_sections:
+            sid = getattr(sec, "question_set_id", None) or getattr(sec, "questionSetId", None)
+            if sid:
+                unique_set_ids.add(str(sid))
+        for entity in entities:
+            qsid = getattr(entity, "question_set_id", None) or getattr(entity, "questionSetId", None)
+            if qsid:
+                unique_set_ids.add(str(qsid))
+
+        # 3. Bulk pre-fetch all unique question sets concurrently IN ONE SINGLE BATCH
+        questions_by_set: dict[str, list[Any]] = {}
+        def _fetch_set(set_id: str) -> tuple[str, list[Any]]:
+            try:
+                return set_id, self.question_bank_client.list_questions(set_id)
+            except Exception as e:
+                logger.warning("Error batch pre-fetching set '%s': %s", set_id, e)
+                return set_id, []
+
+        if unique_set_ids:
+            with ThreadPoolExecutor(max_workers=min(len(unique_set_ids), 10)) as executor:
+                futures = [executor.submit(_fetch_set, sid) for sid in unique_set_ids]
+                for f in futures:
+                    sid, q_list = f.result()
+                    questions_by_set[sid] = q_list
+
+        # 4. Assemble all test responses in memory instantly (zero loop thread pool overhead)
         results = []
         for entity in entities:
-            # Get pre-fetched sections if available, else fallback to per-test list
             sections = sections_by_test.get(entity.id)
             if sections is None and self.section_repository is not None:
                 sections = self.section_repository.list_by_test_id(entity.id)
             elif sections is None:
                 sections = []
             
-            results.append(self._to_response(entity, sections))
+            results.append(self._to_response(entity, sections, questions_by_set=questions_by_set))
         return results
 
     def update_test(self, test_id: str, payload: TestUpdateRequest) -> TestResponse:
@@ -145,6 +173,7 @@ class TestService(TestServiceInterface):
         self,
         test_entity: TestEntity,
         section_entities: list[SectionEntity],
+        questions_by_set: dict[str, list[Any]] | None = None,
     ) -> TestResponse:
         link_id_val = getattr(test_entity, "link_id", None) or getattr(test_entity, "linkId", None)
         test_status_val = getattr(test_entity, "test_status", None) or getattr(test_entity, "testStatus", None) or "Active"
@@ -152,10 +181,13 @@ class TestService(TestServiceInterface):
         # Case A: Single-Set Test (created with question_set_id)
         if test_entity.question_set_id is not None and not section_entities:
             raw_questions = []
-            try:
-                raw_questions = self.question_bank_client.list_questions(test_entity.question_set_id)
-            except Exception as e:
-                logger.warning("Error fetching questions for single set '%s': %s", test_entity.question_set_id, e)
+            if questions_by_set is not None and test_entity.question_set_id in questions_by_set:
+                raw_questions = questions_by_set[test_entity.question_set_id]
+            else:
+                try:
+                    raw_questions = self.question_bank_client.list_questions(test_entity.question_set_id)
+                except Exception as e:
+                    logger.warning("Error fetching questions for single set '%s': %s", test_entity.question_set_id, e)
 
             formatted_questions = self._apply_shuffle_and_formatting(
                 raw_questions=raw_questions,
@@ -184,25 +216,29 @@ class TestService(TestServiceInterface):
                 sections=[],
             )
 
-        # Case B: Multi-Section Test with Concurrent Fetching
+        # Case B: Multi-Section Test
         sorted_sections = sorted(section_entities, key=lambda s: getattr(s, "order", 1))
         
-        # Parallel question fetching for sections
-        def _fetch_sec_questions(sec: SectionEntity) -> tuple[str, list[Any]]:
-            try:
-                q_list = self.question_bank_client.list_questions(sec.question_set_id)
-                return sec.id, q_list
-            except Exception as e:
-                logger.warning("Error fetching questions for set '%s': %s", sec.question_set_id, e)
-                return sec.id, []
-
+        # Check if pre-fetched questions_by_set map is supplied
         questions_map: dict[str, list[Any]] = {}
         if sorted_sections:
-            with ThreadPoolExecutor(max_workers=min(len(sorted_sections), 5)) as executor:
-                futures = [executor.submit(_fetch_sec_questions, sec) for sec in sorted_sections]
-                for f in futures:
-                    sec_id, q_list = f.result()
-                    questions_map[sec_id] = q_list
+            if questions_by_set is not None:
+                for sec in sorted_sections:
+                    questions_map[sec.id] = questions_by_set.get(sec.question_set_id, [])
+            else:
+                def _fetch_sec_questions(sec: SectionEntity) -> tuple[str, list[Any]]:
+                    try:
+                        q_list = self.question_bank_client.list_questions(sec.question_set_id)
+                        return sec.id, q_list
+                    except Exception as e:
+                        logger.warning("Error fetching questions for set '%s': %s", sec.question_set_id, e)
+                        return sec.id, []
+
+                with ThreadPoolExecutor(max_workers=min(len(sorted_sections), 5)) as executor:
+                    futures = [executor.submit(_fetch_sec_questions, sec) for sec in sorted_sections]
+                    for f in futures:
+                        sec_id, q_list = f.result()
+                        questions_map[sec_id] = q_list
 
         section_responses: list[SectionWithQuestionsResponse] = []
         total_duration = 0
