@@ -15,6 +15,7 @@ router = APIRouter(prefix="/tests", tags=["Tests"])
 @router.post(
     "",
     response_model=TestResponse,
+    response_model_exclude_none=True,
     status_code=status.HTTP_201_CREATED,
     summary="Create test",
     description="Create a new test definition.",
@@ -29,6 +30,7 @@ async def create_test(
 @router.get(
     "",
     response_model=TestListResponse,
+    response_model_exclude_none=True,
     status_code=status.HTTP_200_OK,
     summary="List tests",
     description="List all configured tests.",
@@ -43,6 +45,7 @@ async def list_tests(
 @router.get(
     "/{testId}/complete",
     response_model=TestResponse,
+    response_model_exclude_none=True,
     status_code=status.HTTP_200_OK,
     summary="Get complete test template",
     description="Fetch a test with nested sections and dynamic questions.",
@@ -57,6 +60,7 @@ async def get_complete_test(
 @router.get(
     "/{id}",
     response_model=TestResponse,
+    response_model_exclude_none=True,
     status_code=status.HTTP_200_OK,
     summary="Get test",
     description="Fetch a single test by id with nested section details and live questions.",
@@ -71,6 +75,7 @@ async def get_test(
 @router.put(
     "/{id}",
     response_model=TestResponse,
+    response_model_exclude_none=True,
     status_code=status.HTTP_200_OK,
     summary="Update test",
     description="Replace an existing test by id.",
