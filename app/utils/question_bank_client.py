@@ -14,7 +14,7 @@ logger = get_logger(__name__)
 
 
 class QuestionBankClient:
-    """Live Question Bank client with pre-warmed in-memory TTL caching and resilient fallback."""
+    """Live Question Bank client with in-memory TTL caching."""
 
     def __init__(self, base_url: str | None = None, timeout: float = 10.0, cache_ttl: float = 300.0) -> None:
         try:
@@ -32,80 +32,6 @@ class QuestionBankClient:
         self.cache_ttl = cache_ttl
         self._cache: dict[str, tuple[float, dict[str, Any]]] = {}
         self._sets_cache: tuple[float, list[QuestionSetResponse]] | None = None
-
-        self._fallback_sets = {
-            "SET_MCQ_01": {
-                "questionSetId": "SET_MCQ_01",
-                "questionType": "MCQ",
-                "type": "MCQ",
-                "title": "Aptitude Round MCQ Set",
-                "questions": [
-                    {
-                        "questionId": "Q001",
-                        "question": "What is 2+2?",
-                        "type": "MCQ",
-                        "marks": 2,
-                        "options": [
-                            {"optionId": "A", "text": "4"},
-                            {"optionId": "B", "text": "5"}
-                        ],
-                        "correctOptionId": "A"
-                    }
-                ]
-            },
-            "BIT-CODING-001": {
-                "questionSetId": "BIT-CODING-001",
-                "questionType": "CODING",
-                "type": "CODING",
-                "title": "Technical Coding Round 1",
-                "questions": [
-                    {
-                        "questionId": "CQ001",
-                        "question": "Write a function to check if a string is a palindrome.",
-                        "type": "CODING",
-                        "marks": 10
-                    }
-                ]
-            },
-            "SET001": {
-                "questionSetId": "SET001",
-                "questionType": "MCQ",
-                "type": "MCQ",
-                "title": "Java Core Fundamentals",
-                "questions": [
-                    {
-                        "questionId": "Q001",
-                        "question": "Which keyword is used to inherit a class in Java?",
-                        "type": "MCQ",
-                        "marks": 2,
-                        "options": [
-                            {"optionId": "A", "text": "implements"},
-                            {"optionId": "B", "text": "extends"}
-                        ],
-                        "correctOptionId": "B"
-                    }
-                ]
-            },
-            "SET_CODING_01": {
-                "questionSetId": "SET_CODING_01",
-                "questionType": "CODING",
-                "type": "CODING",
-                "title": "Hands-on Coding Round",
-                "questions": [
-                    {
-                        "questionId": "CQ002",
-                        "question": "Implement LRU Cache.",
-                        "type": "CODING",
-                        "marks": 20
-                    }
-                ]
-            }
-        }
-
-        # Pre-warm cache with fallback sets for 0ms sub-millisecond RAM response
-        now = time.time()
-        for k, v in self._fallback_sets.items():
-            self._cache[k] = (now, v)
 
     def get_question_set(self, question_set_id: str) -> dict[str, Any]:
         now = time.time()
@@ -133,29 +59,17 @@ class QuestionBankClient:
                 )
         except urllib.error.HTTPError as e:
             if e.code in (400, 404):
-                if question_set_id in self._fallback_sets:
-                    logger.warning("Using fallback for '%s' after HTTP %s", question_set_id, e.code)
-                    return self._fallback_sets[question_set_id]
                 raise QuestionSetNotFoundException(
                     f"Invalid Question Set: '{question_set_id}' does not exist.",
                 )
             logger.error("HTTP error from Question Service: %s %s", e.code, e.reason)
-            if question_set_id in self._fallback_sets:
-                logger.warning("Using fallback for '%s' after HTTP 500 error", question_set_id)
-                return self._fallback_sets[question_set_id]
             raise QuestionServiceException(f"Question Bank Service HTTP Error: {e.code}")
         except QuestionSetNotFoundException:
-            if question_set_id in self._fallback_sets:
-                return self._fallback_sets[question_set_id]
             raise
         except QuestionServiceException:
-            if question_set_id in self._fallback_sets:
-                return self._fallback_sets[question_set_id]
             raise
         except Exception as e:
             logger.error("Error connecting to Question Bank Service for '%s': %s", question_set_id, e)
-            if question_set_id in self._fallback_sets:
-                return self._fallback_sets[question_set_id]
             raise QuestionServiceException(f"Unable to connect to Question Bank Service: {str(e)}")
 
     def list_question_sets(self) -> list[QuestionSetResponse]:
@@ -190,30 +104,7 @@ class QuestionBankClient:
         except Exception as e:
             logger.error("Error listing question sets from Question Bank Service: %s", e)
 
-        fallback_list = [
-            QuestionSetResponse(
-                questionSetId="SET_MCQ_01",
-                questionSetName="Aptitude Round MCQ Set",
-                totalQuestions=1,
-            ),
-            QuestionSetResponse(
-                questionSetId="BIT-CODING-001",
-                questionSetName="Technical Coding Round 1",
-                totalQuestions=1,
-            ),
-            QuestionSetResponse(
-                questionSetId="SET001",
-                questionSetName="Java Core Fundamentals",
-                totalQuestions=1,
-            ),
-            QuestionSetResponse(
-                questionSetId="SET_CODING_01",
-                questionSetName="Hands-on Coding Round",
-                totalQuestions=1,
-            ),
-        ]
-        self._sets_cache = (now, fallback_list)
-        return fallback_list
+        return []
 
     def list_questions(self, question_set_id: str) -> list[dict[str, Any]]:
         try:
@@ -224,8 +115,6 @@ class QuestionBankClient:
                 return set_data
         except Exception as e:
             logger.warning("Error fetching questions for '%s': %s", question_set_id, e)
-            if question_set_id in self._fallback_sets:
-                return self._fallback_sets[question_set_id].get("questions", [])
         return []
 
     def validate_question_ids(
