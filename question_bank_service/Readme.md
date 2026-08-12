@@ -8,22 +8,40 @@ Designed for scalability, cost efficiency, and clean REST APIs, this service ena
 
 ## Features
 
-- Create and manage Question Sets
-- CRUD operations for Questions
-- Serverless architecture using AWS Lambda
-- FastAPI with automatic Swagger/OpenAPI documentation
-- Pydantic v2 request & response validation
-- DynamoDB Single Table Design
-- Batch deletion of complete Question Sets
-- Automatic default marks assignment
-- RESTful API design
-- Production-ready modular architecture
+* **Multi-Format Question Support (NEW):** Seamlessly handle Multiple Choice (MCQ), Technical Coding, and Descriptive (Essay) questions.
+* **Create and manage Question Sets**.
+
+
+* **CRUD operations for Questions**.
+
+
+* **Serverless architecture using AWS Lambda**.
+
+
+* **FastAPI with automatic Swagger/OpenAPI documentation**.
+
+
+* **Pydantic v2 request & response validation**, including dynamic auto-scrubbing for mismatched question attributes.
+
+
+* **DynamoDB Single Table Design**.
+
+
+* **Batch deletion of complete Question Sets**.
+
+
+* **Automatic default marks assignment**.
+
+
+* **Production-ready modular architecture** with CI/CD automation.
+
+
 
 ---
 
-# Architecture
+## Architecture
 
-```
+```text
                    React / Vue Frontend
                            │
                            │ HTTPS REST API
@@ -38,368 +56,286 @@ Designed for scalability, cost efficiency, and clean REST APIs, this service ena
                            ▼
                      FastAPI Application
                            │
-                  Business Service Layer
+                  Business Service Layer (Validation & Routing)
                            │
-                     Repository Layer
+                     Repository Layer (Data Access & Scrubbing)
                            │
                            ▼
                      Amazon DynamoDB
+
 ```
 
 ---
 
-# Technology Stack
+## Technology Stack
 
 | Technology | Purpose |
-|------------|---------|
-| Python 3.13 | Backend Runtime |
-| FastAPI | REST API Framework |
-| Mangum | AWS Lambda Adapter |
-| Pydantic v2 | Data Validation |
-| DynamoDB | NoSQL Database |
-| Boto3 | AWS SDK |
-| AWS Lambda | Serverless Compute |
-| API Gateway | API Management |
-| Uvicorn | Local Development Server |
+| --- | --- |
+| **Python 3.13** | Backend Runtime
+
+ |
+| **FastAPI** | REST API Framework
+
+ |
+| **Mangum** | AWS Lambda Adapter
+
+ |
+| **Pydantic v2** | Data Validation & Dynamic Scrubbing
+
+ |
+| **DynamoDB** | NoSQL Database
+
+ |
+| **Boto3** | AWS SDK
+
+ |
+| **AWS Lambda** | Serverless Compute
+
+ |
+| **pytest & moto** | Unit Testing & Mocking AWS |
+| **GitHub Actions** | CI/CD Pipeline Automation |
+| **SonarCloud & Snyk** | Code Quality & Vulnerability Scanning |
 
 ---
 
-# Project Structure
-
-```
-question_bank_service/
-│
-├── main.py
-├── config.py
-├── schemas.py
-├── repository.py
-├── routes/
-├── services/
-├── models/
-├── utils/
-│
-├── requirements.txt
-└── README.md
-```
-
----
-
-# Database Design
+## Database Design
 
 The service follows a **Single Table Design** in DynamoDB.
 
 ### Primary Keys
 
 | Attribute | Description |
-|-----------|-------------|
-| questionSetId | Partition Key |
-| questionId | Sort Key |
+| --- | --- |
+| **questionSetId** | Partition Key
 
-Example
+ |
+| **questionId** | Sort Key
+
+ |
+
+### Entity Structure Example
+
+```text
+SET_CODING_01 (Partition Key)
+ ├── METADATA (Sort Key) -> Contains setType="CODING", title, etc.
+ ├── Q001 (Sort Key)     -> Question data
+ ├── Q002 (Sort Key)
+ └── Q003 (Sort Key)
 
 ```
-SET001
- ├── METADATA
- ├── Q001
- ├── Q002
- ├── Q003
- └── Q004
-```
 
-This design provides
-
-- Faster querying
-- Better scalability
-- Lower DynamoDB cost
-- No joins
-- Easy pagination
-- Concurrent editing support
+This design provides faster querying, better scalability, lower DynamoDB costs, no joins, easy pagination, and concurrent editing support.
 
 ---
 
-# API Endpoints
+## Validation & Auto-Scrubbing
 
-## Question Sets
+Pydantic v2 automatically validates request bodies, response schemas, required fields, and default values.
 
-### Create Question Set
+The microservice features a dynamic strict-schema validator:
 
-```
-POST /question-sets
-```
+* **MCQ:** Requires `options` and `correctOptionId`. Auto-scrubs `language` and `wordLimit`.
+* **CODING:** Requires `language`. Auto-scrubs `options`, `correctOptionId`, and `wordLimit`.
+* **DESCRIPTIVE:** Accepts an optional `wordLimit`. Auto-scrubs `options`, `correctOptionId`, and `language`.
 
-Request
+(Example: If marks are omitted, the backend automatically assigns a default value of **2**).
+
+---
+
+## API Endpoints
+
+### 1. Question Sets
+
+* **Create Question Set:** `POST /question-sets`
 
 ```json
 {
-  "questionSetId": "SET001"
+  "questionSetId": "SET_DESC_01",
+  "setType": "DESCRIPTIVE"
 }
+
 ```
+
+
+* **Get Question Set:** `GET /question-sets/{questionSetId}` (Returns Metadata, Total questions, and the Question list).
+
+
+* **Delete Question Set:** `DELETE /question-sets/{questionSetId}` (Deletes Metadata and all associated questions via batch writer).
+
+
+
+### 2. Questions
+
+* **Create Question:** `POST /questions`
+
+* **Get Question:** `GET /questions/{questionSetId}/{questionId}`
+
+* **Update Question:** `PUT /questions/{questionSetId}/{questionId}`
+
+* **Delete Question:** `DELETE /questions/{questionSetId}/{questionId}`
+
+
+### 3. Developer Tools
+
+* **Demo Seeder:** `POST /seed-demo`
+
+
+*(Automatically inserts sample MCQ, Coding, and Descriptive Question Sets into the database).*
 
 ---
 
-### Get Question Set
+## Sample Question Payloads
 
-```
-GET /question-sets/{questionSetId}
-```
-
-Returns
-
-- Metadata
-- Total questions
-- Question list
-
----
-
-### Delete Question Set
-
-```
-DELETE /question-sets/{questionSetId}
-```
-
-Deletes
-
-- Metadata
-- All associated questions
-
----
-
-## Questions
-
-### Create Question
-
-```
-POST /questions
-```
-
----
-
-### Get Question
-
-```
-GET /questions/{questionSetId}/{questionId}
-```
-
----
-
-### Update Question
-
-```
-PUT /questions/{questionSetId}/{questionId}
-```
-
----
-
-### Delete Question
-
-```
-DELETE /questions/{questionSetId}/{questionId}
-```
-
----
-
-## Demo Seeder
-
-```
-POST /seed-demo
-```
-
-Automatically inserts
-
-- Sample Question Set
-- Demo Java Questions
-
----
-
-# Sample Question
+### MCQ Format
 
 ```json
 {
-  "questionSetId": "SET001",
   "questionId": "Q001",
+  "questionSetId": "SET_MCQ_01",
+  "questionType": "MCQ",
   "question": "What is JVM?",
   "options": [
-    "Java Virtual Machine",
-    "Java Variable Method",
-    "Java Visual Module",
-    "None"
+    {"optionId": "A", "text": "Java Virtual Machine"},
+    {"optionId": "B", "text": "Java Variable Method"}
   ],
-  "correctOption": 1,
+  "correctOptionId": "A",
   "marks": 2
 }
+
+```
+
+### Technical Coding Format
+
+```json
+{
+  "questionId": "Q002",
+  "questionSetId": "SET_CODING_01",
+  "questionType": "CODING",
+  "question": "Write a program to reverse a linked list.",
+  "language": "python",
+  "marks": 10
+}
+
+```
+
+### Descriptive / Essay Format
+
+```json
+{
+  "questionId": "Q003",
+  "questionSetId": "SET_DESC_01",
+  "questionType": "DESCRIPTIVE",
+  "question": "Describe a time you overcame a technical challenge.",
+  "wordLimit": 500,
+  "marks": 5
+}
+
 ```
 
 ---
 
-# Running Locally
+## Running Locally
 
-## Clone Repository
+**Clone Repository**
 
 ```bash
 git clone <repository-url>
-
 cd question-bank-service
+
 ```
 
-Install Dependencies
+**Install Dependencies**
 
 ```bash
 pip install -r requirements.txt
+
 ```
 
-Start Server
+**Set Environment Variable & Start Server**
 
 ```bash
+export TABLE_NAME="QuestionBankTable_SW" 
 uvicorn question_bank_service.main:app --reload
-```
-
-Swagger
 
 ```
-http://localhost:8000/docs
-```
 
-ReDoc
+* **Swagger UI:** `http://localhost:8000/docs`
 
-```
-http://localhost:8000/redoc
-```
+* **ReDoc:** `http://localhost:8000/redoc`
+
 
 ---
 
-# AWS Deployment
+## CI/CD & Quality Assurance
 
-Deploy using
+This repository includes a fully automated CI/CD pipeline triggered via **GitHub Actions**:
 
-- AWS Lambda
-- Amazon API Gateway
-- DynamoDB
-
-Lambda Handler
-
-```
-question_bank_service.main.handler
-```
-
-Environment Variable
-
-```
-TABLE_NAME=QuestionBankTable
-```
-
-API Gateway Stage
-
-```
-/default
-```
-
-FastAPI Configuration
-
-```python
-app = FastAPI(root_path="/default")
-```
+* **Security Scanning:** Snyk automatically tests `requirements.txt` to block high-severity vulnerabilities before deployment.
+* **Unit Testing:** Pytest and `moto` execute test suites within a completely mocked AWS DynamoDB environment.
+* **Code Quality:** SonarCloud integration tracks test coverage (`coverage.xml`), bugs, and code smells.
+* **Automated AWS Deployment:** Packages the FastAPI app with dependencies natively and updates the Lambda function via AWS CLI upon a successful merge.
 
 ---
 
-# Design Decisions
+## AWS Deployment
 
-## Why FastAPI?
+Deploy using AWS Lambda, Amazon API Gateway, and DynamoDB.
 
-- High performance
-- Async support
-- Automatic Swagger
-- Built-in validation
+* **Lambda Handler:** `question_bank_service.main.handler`
 
----
+* **Environment Variable:** `TABLE_NAME=QuestionBankTable_SW`
 
-## Why DynamoDB?
+* **API Gateway Stage:** `/default`
 
-- Fully managed
-- Low latency
-- Infinite scalability
-- Pay-per-request pricing
+* **FastAPI Configuration:** `app = FastAPI(root_path="/default")`
+
 
 ---
 
-## Why Serverless?
+## Design Decisions
 
-- Zero idle cost
-- Automatic scaling
-- Minimal maintenance
-- High availability
+* **Why FastAPI?** High performance, Async support, Automatic Swagger, Built-in validation.
 
----
 
-## Why Single Table Design?
+* **Why DynamoDB?** Fully managed, Low latency, Infinite scalability, Pay-per-request pricing.
 
-Instead of storing an entire assessment in one large JSON document, each question is stored as an independent record.
 
-Benefits
+* **Why Serverless?** Zero idle cost, Automatic scaling, Minimal maintenance, High availability.
 
-- Avoids DynamoDB 400 KB item limit
-- Faster updates
-- Reduced read/write costs
-- No race conditions
-- Easy pagination
+
+* **Why Single Table Design?** Instead of storing an entire assessment in one large JSON document, each question is stored as an independent record. This avoids DynamoDB 400 KB item limits, enables faster updates, reduces read/write costs, eliminates race conditions, and simplifies pagination.
+
+
 
 ---
 
-# Validation
+## Future Enhancements
 
-Pydantic automatically validates
+* JWT Authentication
 
-- Request body
-- Response schema
-- Required fields
-- Default values
 
-Example
+* Role-Based Access Control (RBAC)
 
-```python
-marks = 2
-```
 
-If marks are omitted, the backend automatically assigns a value of **2**.
+* Question Versioning
 
----
 
-# Future Enhancements
+* Bulk Import (Excel/CSV)
 
-- JWT Authentication
-- Role-Based Access Control (RBAC)
-- Question Versioning
-- Bulk Import (Excel/CSV)
-- Question Search
-- Pagination
-- Difficulty Levels
-- Tags & Categories
-- Image Upload Support
-- Audit Logging
-- Unit & Integration Tests
-- CI/CD Pipeline
-- Docker Support
-- Terraform Deployment
+
+* Pagination, Tags & Categories, Difficulty Levels
+
+
 
 ---
 
-# Performance Highlights
-
-- Stateless REST APIs
-- Serverless architecture
-- Optimized DynamoDB queries
-- Batch deletion support
-- Scalable for campus recruitment
-- Low operational cost
-
----
-
-# License
+## License
 
 This project is developed as part of a Recruitment Platform backend and is intended for educational and enterprise learning purposes.
 
 ---
 
-# Author
+## Author
 
 **Syed Abdul Rahman**
 
