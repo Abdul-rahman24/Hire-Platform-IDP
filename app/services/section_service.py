@@ -92,6 +92,11 @@ class SectionService(SectionServiceInterface):
         created_entity = self.repository.create(entity)
         return self._to_response(created_entity)
 
+    def get_section(self, section_id: str) -> SectionResponse:
+        logger.info("Fetching section '%s'", section_id)
+        entity = self.repository.get(section_id)
+        return self._to_response(entity)
+
     def list_sections(self, test_id: str) -> list[SectionResponse]:
         logger.info("Listing sections for test '%s'", test_id)
         entities = self.repository.list_by_test_id(test_id)

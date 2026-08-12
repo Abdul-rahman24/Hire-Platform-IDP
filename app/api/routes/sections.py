@@ -42,6 +42,20 @@ async def list_sections(
     return SectionListResponse(items=items, count=len(items))
 
 
+@router.get(
+    "/sections/{sectionId}",
+    response_model=SectionResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get section",
+    description="Fetch a single section by id.",
+)
+async def get_section(
+    sectionId: str,
+    service: SectionServiceInterface = Depends(get_section_service),
+) -> SectionResponse:
+    return service.get_section(sectionId)
+
+
 @router.put(
     "/sections/{sectionId}",
     response_model=SectionResponse,

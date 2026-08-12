@@ -52,6 +52,10 @@ class SectionServiceInterface(ABC):
         """Create a section for a test."""
 
     @abstractmethod
+    def get_section(self, section_id: str) -> SectionResponse:
+        """Retrieve a section by id."""
+
+    @abstractmethod
     def list_sections(self, test_id: str) -> list[SectionResponse]:
         """List all sections belonging to a test."""
 
