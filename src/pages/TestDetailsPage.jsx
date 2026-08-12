@@ -414,7 +414,7 @@ export default function TestDetailsPage() {
                   <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Candidate Test Link</p>
                   <p className="text-xs font-mono text-[#0B4A99] truncate mt-0.5 select-all">
                     {testData.linkId || testData.link_id 
-                      ? `https://d1t6qh90xvpukg.cloudfront.net/${testData.linkId || testData.link_id}`
+                      ? `https://idpassess.trn.dev.idp.com/${testData.linkId || testData.link_id}`
                       : 'No Link Generated'
                     }
                   </p>
@@ -422,7 +422,7 @@ export default function TestDetailsPage() {
                 {(testData.linkId || testData.link_id) && (
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText(`https://d1t6qh90xvpukg.cloudfront.net/${testData.linkId || testData.link_id}`);
+                      navigator.clipboard.writeText(`https://idpassess.trn.dev.idp.com/${testData.linkId || testData.link_id}`);
                       toast && toast({ type: 'success', title: 'Link Copied', message: 'Test URL copied to clipboard.' });
                     }}
                     className="flex-shrink-0 px-2.5 py-1.5 bg-white border border-slate-250 hover:border-[#0B4A99] text-[10px] font-bold text-slate-600 hover:text-[#0B4A99] rounded-lg transition-all shadow-xs cursor-pointer"
