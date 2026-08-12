@@ -82,7 +82,7 @@ class TestService(TestServiceInterface):
         return self._to_response(test_entity, sections)
 
     def list_tests(self) -> list[TestResponse]:
-        logger.info("Listing all tests with ultra-fast batch resolution")
+        logger.info("Listing all tests with batch resolution")
         entities = self.repository.list()
         if not entities:
             return []
@@ -129,7 +129,7 @@ class TestService(TestServiceInterface):
                     sid, q_list = f.result()
                     questions_by_set[sid] = q_list
 
-        # 4. Assemble all test responses in memory instantly (zero loop thread pool overhead)
+        # 4. Assemble all test responses in memory instantly
         results = []
         for entity in entities:
             sections = sections_by_test.get(entity.id)
@@ -219,7 +219,7 @@ class TestService(TestServiceInterface):
         # Case B: Multi-Section Test
         sorted_sections = sorted(section_entities, key=lambda s: getattr(s, "order", 1))
         
-        # Check if pre-fetched questions_by_set map is supplied
+        # Resolve questions for each section
         questions_map: dict[str, list[Any]] = {}
         if sorted_sections:
             if questions_by_set is not None:
@@ -312,56 +312,23 @@ class TestService(TestServiceInterface):
                     "marks": getattr(q, "marks", 0),
                 }
 
-            qid = q_dict.get("questionId", q_dict.get("question_id", ""))
-            qtext = q_dict.get("question", "")
-            qmarks = q_dict.get("marks", 0)
+            # Preserve ALL raw fields from Question Bank Service without dropping any data
+            formatted_q = dict(q_dict)
 
-            # Explicit question type handling
-            if q_type_upper in ("MCQ", "MULTIPLE_CHOICE"):
-                correct_opt_id = q_dict.get("correctOptionId", q_dict.get("correct_option_id", ""))
-                q_type_val = q_dict.get("questionType", q_dict.get("type", "MCQ"))
-                formatted_q = {
-                    "questionId": qid,
-                    "question": qtext,
-                    "type": q_type_val,
-                    "marks": qmarks,
-                    "options": q_dict.get("options", []),
-                    "correctOptionId": correct_opt_id,
-                }
-            elif q_type_upper == "CODING":
-                formatted_q = {
-                    "questionId": qid,
-                    "question": qtext,
-                    "marks": qmarks,
-                }
-            elif q_type_upper == "ESSAY":
-                formatted_q = {
-                    "questionId": qid,
-                    "question": qtext,
-                    "marks": qmarks,
-                }
-            elif q_type_upper in ("TRUE_FALSE", "TRUE_OR_FALSE"):
-                formatted_q = {
-                    "questionId": qid,
-                    "question": qtext,
-                    "marks": qmarks,
-                }
-            elif q_type_upper == "DESCRIPTIVE":
-                formatted_q = {
-                    "questionId": qid,
-                    "question": qtext,
-                    "marks": qmarks,
-                }
-            else:
-                formatted_q = {
-                    "questionId": qid,
-                    "question": qtext,
-                    "marks": qmarks,
-                }
+            # Ensure primary keys are populated
+            qid = formatted_q.get("questionId") or formatted_q.get("question_id") or formatted_q.get("id", "")
+            qtext = formatted_q.get("question") or formatted_q.get("text") or formatted_q.get("title", "")
+            qmarks = formatted_q.get("marks", 0)
+
+            formatted_q["questionId"] = qid
+            formatted_q["question"] = qtext
+            formatted_q["marks"] = qmarks
+            if "type" not in formatted_q and "questionType" not in formatted_q:
+                formatted_q["type"] = q_type_upper
 
             questions.append(formatted_q)
 
-        # Shuffle question order if requested (applies to ALL sections)
+        # Shuffle question order if requested
         if shuffle_questions:
             random.shuffle(questions)
 
