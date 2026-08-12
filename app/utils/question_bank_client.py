@@ -31,6 +31,7 @@ class QuestionBankClient:
         self.timeout = timeout
         self.cache_ttl = cache_ttl
         self._cache: dict[str, tuple[float, dict[str, Any]]] = {}
+        self._sets_cache: tuple[float, list[QuestionSetResponse]] | None = None
 
         self._fallback_sets = {
             "SET_MCQ_01": {
@@ -158,6 +159,13 @@ class QuestionBankClient:
             raise QuestionServiceException(f"Unable to connect to Question Bank Service: {str(e)}")
 
     def list_question_sets(self) -> list[QuestionSetResponse]:
+        now = time.time()
+        if self._sets_cache is not None:
+            cached_time, cached_sets = self._sets_cache
+            if now - cached_time < self.cache_ttl:
+                logger.debug("Serving question sets list from in-memory RAM cache")
+                return cached_sets
+
         url = f"{self.base_url}/question-sets"
         logger.info("Calling Question Bank Service: GET %s", url)
         req = urllib.request.Request(url, headers={"Accept": "application/json"})
@@ -177,11 +185,12 @@ class QuestionBankClient:
                                 )
                             )
                     if results:
+                        self._sets_cache = (now, results)
                         return results
         except Exception as e:
             logger.error("Error listing question sets from Question Bank Service: %s", e)
 
-        return [
+        fallback_list = [
             QuestionSetResponse(
                 questionSetId="SET_MCQ_01",
                 questionSetName="Aptitude Round MCQ Set",
@@ -203,6 +212,8 @@ class QuestionBankClient:
                 totalQuestions=1,
             ),
         ]
+        self._sets_cache = (now, fallback_list)
+        return fallback_list
 
     def list_questions(self, question_set_id: str) -> list[dict[str, Any]]:
         try:

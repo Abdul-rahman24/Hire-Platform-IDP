@@ -2,10 +2,11 @@ from functools import cached_property
 
 import boto3
 from boto3.resources.base import ServiceResource
+from botocore.config import Config
 
 
 class DynamoDBClient:
-    """Reusable DynamoDB resource wrapper for repositories."""
+    """Reusable DynamoDB resource wrapper for repositories with high-concurrency connection pooling."""
 
     def __init__(
         self,
@@ -19,10 +20,18 @@ class DynamoDBClient:
 
     @cached_property
     def resource(self) -> ServiceResource:
+        # High performance botocore config: 50 pool connections, short timeouts
+        boto_config = Config(
+            max_pool_connections=50,
+            connect_timeout=2,
+            read_timeout=3,
+            retries={"max_attempts": 2, "mode": "standard"},
+        )
         return boto3.resource(
             "dynamodb",
             region_name=self.region_name,
             endpoint_url=self.endpoint_url,
+            config=boto_config,
         )
 
     def table_name(self, base_name: str) -> str:
@@ -30,4 +39,3 @@ class DynamoDBClient:
 
     def get_table(self, base_name: str):
         return self.resource.Table(self.table_name(base_name))
-

@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from mangum import Mangum
@@ -45,6 +45,16 @@ def create_application() -> FastAPI:
 
     # Enable GZip response compression for payloads > 500 bytes
     app.add_middleware(GZipMiddleware, minimum_size=500)
+
+    # Cache-Control middleware for GET requests to optimize client & CDN response times
+    @app.middleware("http")
+    async def add_cache_control_header(request: Request, call_next):
+        response = await call_next(request)
+        if request.method == "GET" and response.status_code == 200:
+            path = request.url.path
+            if path in ("/health", "/") or path.startswith("/tests") or path.startswith("/question-sets"):
+                response.headers["Cache-Control"] = "public, max-age=5, s-maxage=10, stale-while-revalidate=60"
+        return response
 
     app.include_router(create_api_router())
     register_exception_handlers(app)
