@@ -26,6 +26,19 @@ def _generate_6digit_link_id() -> str:
     return str(secrets.randbelow(900000) + 100000)
 
 
+def _normalize_question_type(raw_type: str | None) -> str:
+    if not raw_type or not isinstance(raw_type, str):
+        return "MCQ"
+    val = raw_type.strip().upper()
+    if "COD" in val or "PROGRAM" in val or "ALGO" in val:
+        return "CODING"
+    if "DESC" in val or "ESSAY" in val or "SUBJECTIVE" in val or "TEXT" in val:
+        return "DESCRIPTIVE"
+    if "MCQ" in val or "CHOICE" in val or "OBJECTIVE" in val:
+        return "MCQ"
+    return val
+
+
 class TestService(TestServiceInterface):
     def __init__(
         self,
@@ -188,9 +201,26 @@ class TestService(TestServiceInterface):
                 except Exception as e:
                     logger.warning("Error fetching questions for single set '%s': %s", test_entity.question_set_id, e)
 
+            # Determine question type from set or questions
+            single_set_type = "MCQ"
+            try:
+                qset = self.question_bank_client.get_question_set(test_entity.question_set_id)
+                if isinstance(qset, dict):
+                    raw_st = qset.get("questionType") or qset.get("question_type") or qset.get("type")
+                    if raw_st:
+                        single_set_type = _normalize_question_type(raw_st)
+            except Exception:
+                pass
+
+            if single_set_type == "MCQ" and raw_questions and isinstance(raw_questions[0], dict):
+                first_q = raw_questions[0]
+                q_st = first_q.get("questionType") or first_q.get("question_type") or first_q.get("type")
+                if q_st:
+                    single_set_type = _normalize_question_type(q_st)
+
             formatted_questions = self._format_questions(
                 raw_questions=raw_questions,
-                question_type="MCQ",
+                question_type=single_set_type,
             )
 
             duration = test_entity.duration_minutes or 90
@@ -246,9 +276,19 @@ class TestService(TestServiceInterface):
             total_marks += sec.marks
             raw_questions = questions_map.get(sec.id, [])
 
+            # Dynamic question type resolution
+            resolved_sec_type = sec.question_type
+            if (not resolved_sec_type or resolved_sec_type == "MCQ") and raw_questions and isinstance(raw_questions[0], dict):
+                first_q = raw_questions[0]
+                q_t = first_q.get("questionType") or first_q.get("question_type") or first_q.get("type")
+                if q_t:
+                    resolved_sec_type = _normalize_question_type(q_t)
+
+            resolved_sec_type = _normalize_question_type(resolved_sec_type)
+
             processed_questions = self._format_questions(
                 raw_questions=raw_questions,
-                question_type=sec.question_type or "MCQ",
+                question_type=resolved_sec_type,
             )
 
             sec_resp = SectionWithQuestionsResponse(
@@ -256,7 +296,7 @@ class TestService(TestServiceInterface):
                 test_id=sec.test_id,
                 section_name=sec.section_name,
                 question_set_id=sec.question_set_id,
-                question_type=sec.question_type,
+                question_type=resolved_sec_type,
                 duration_minutes=sec.duration_minutes,
                 marks=sec.marks,
                 order=sec.order,
@@ -291,7 +331,6 @@ class TestService(TestServiceInterface):
         question_type: str,
     ) -> list[dict[str, Any]]:
         questions: list[dict[str, Any]] = []
-        q_type_upper = (question_type or "MCQ").upper()
 
         for q in raw_questions:
             if hasattr(q, "model_dump"):
@@ -313,11 +352,15 @@ class TestService(TestServiceInterface):
             qtext = formatted_q.get("question") or formatted_q.get("text") or formatted_q.get("title", "")
             qmarks = formatted_q.get("marks", 0)
 
+            # Resolve question's exact type from the question itself or inherited from section
+            raw_q_type = formatted_q.get("questionType") or formatted_q.get("question_type") or formatted_q.get("type") or question_type
+            resolved_type = _normalize_question_type(raw_q_type)
+
             formatted_q["questionId"] = qid
             formatted_q["question"] = qtext
             formatted_q["marks"] = qmarks
-            if "type" not in formatted_q and "questionType" not in formatted_q:
-                formatted_q["type"] = q_type_upper
+            formatted_q["type"] = resolved_type
+            formatted_q["questionType"] = resolved_type
 
             questions.append(formatted_q)
 

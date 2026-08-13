@@ -24,7 +24,11 @@ def _normalize_question_type(raw_type: str | None) -> str:
     val = raw_type.strip().upper()
     if "COD" in val or "PROGRAM" in val or "ALGO" in val:
         return "CODING"
-    return "MCQ"
+    if "DESC" in val or "ESSAY" in val or "SUBJECTIVE" in val or "TEXT" in val:
+        return "DESCRIPTIVE"
+    if "MCQ" in val or "CHOICE" in val or "OBJECTIVE" in val:
+        return "MCQ"
+    return val
 
 
 def _extract_question_type_from_set(qset: Any) -> str:
@@ -47,7 +51,7 @@ def _extract_question_type_from_set(qset: Any) -> str:
     if isinstance(questions, list) and len(questions) > 0:
         first_q = questions[0]
         if isinstance(first_q, dict):
-            for key in ("type", "questionType", "question_type", "category"):
+            for key in ("questionType", "question_type", "type", "category"):
                 val = first_q.get(key)
                 if val and isinstance(val, str):
                     return _normalize_question_type(val)
@@ -86,7 +90,10 @@ class SectionService(SectionServiceInterface):
             raise QuestionSetNotFoundException(f"Invalid Question Set: '{payload.question_set_id}' does not exist.")
 
         dump = payload.model_dump()
-        dump["question_type"] = _extract_question_type_from_set(qset)
+        if payload.question_type:
+            dump["question_type"] = _normalize_question_type(payload.question_type)
+        else:
+            dump["question_type"] = _extract_question_type_from_set(qset)
 
         entity = SectionEntity(test_id=test_id, **dump)
         created_entity = self.repository.create(entity)
@@ -130,7 +137,10 @@ class SectionService(SectionServiceInterface):
         update_dict = payload.model_dump(exclude_unset=True)
         updated_data.update(update_dict)
         updated_data["question_set_id"] = new_question_set_id
-        if qset is not None:
+        
+        if payload.question_type:
+            updated_data["question_type"] = _normalize_question_type(payload.question_type)
+        elif qset is not None:
             updated_data["question_type"] = _extract_question_type_from_set(qset)
 
         entity = SectionEntity.model_validate(updated_data)
