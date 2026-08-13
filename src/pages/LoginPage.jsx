@@ -147,7 +147,7 @@ export default function LoginPage({ onLoginSuccess }) {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@idp.com"
+                  placeholder="Enter username"
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 2xl:py-3 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1.5 focus:ring-[#0B4A99]/20 focus:border-[#0B4A99] focus:bg-white transition-all font-semibold"
                 />
               </div>
@@ -166,7 +166,7 @@ export default function LoginPage({ onLoginSuccess }) {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="Enter password"
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-9 py-2 2xl:py-3 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1.5 focus:ring-[#0B4A99]/20 focus:border-[#0B4A99] focus:bg-white transition-all font-semibold"
                 />
                 <button
