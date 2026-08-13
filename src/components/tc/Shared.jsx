@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiX } from 'react-icons/fi';
 
@@ -128,15 +129,15 @@ export function ConfirmDialog({ isOpen, title = 'Are you sure?', description, co
 
 /* ─── Right Drawer ───────────────────────────────────────────────── */
 export function Drawer({ isOpen, onClose, title, subtitle, children, width = 'max-w-[480px]' }) {
-  return (
+  const content = (
     <AnimatePresence>
       {isOpen && (
-        <>
+        <div className="fixed inset-0 z-[9900]">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[800] bg-slate-900/30 backdrop-blur-sm"
+            className="fixed inset-0 bg-slate-900/30 backdrop-blur-sm"
             onClick={onClose}
           />
           <motion.div
@@ -144,7 +145,7 @@ export function Drawer({ isOpen, onClose, title, subtitle, children, width = 'ma
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'tween', duration: 0.28, ease: [0.25, 0.46, 0.45, 0.94] }}
-            className={`fixed right-0 top-0 h-full ${width} w-full z-[850] bg-white shadow-2xl flex flex-col`}
+            className={`fixed right-0 top-0 h-full ${width} w-full bg-white shadow-2xl flex flex-col z-10`}
           >
             <div className="flex items-start justify-between px-6 py-5 border-b border-slate-100 flex-shrink-0">
               <div>
@@ -157,39 +158,51 @@ export function Drawer({ isOpen, onClose, title, subtitle, children, width = 'ma
             </div>
             <div className="flex-1 overflow-y-auto">{children}</div>
           </motion.div>
-        </>
+        </div>
       )}
     </AnimatePresence>
   );
+
+  return createPortal(content, document.body);
 }
 
 /* ─── Full-screen Modal ──────────────────────────────────────────── */
 export function Modal({ isOpen, onClose, title, subtitle, children, maxWidth = 'max-w-lg' }) {
-  if (!isOpen) return null;
-  return (
+  const content = (
     <AnimatePresence>
-      <div className="fixed inset-0 z-[900] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-        <div className="absolute inset-0" onClick={onClose} />
-        <motion.div
-          initial={{ scale: 0.94, opacity: 0, y: 10 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.94, opacity: 0 }}
-          className={`relative bg-white rounded-2xl shadow-2xl w-full ${maxWidth} max-h-[90vh] flex flex-col`}
-        >
-          <div className="flex items-start justify-between px-6 py-5 border-b border-slate-100 flex-shrink-0">
-            <div>
-              <h2 className="text-sm font-bold text-slate-900">{title}</h2>
-              {subtitle && <p className="text-[11px] text-slate-400 mt-0.5">{subtitle}</p>}
+      {isOpen && (
+        <div className="fixed inset-0 z-[9900] flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm"
+            onClick={onClose}
+          />
+          <motion.div
+            initial={{ scale: 0.94, opacity: 0, y: 10 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.94, opacity: 0, y: 10 }}
+            transition={{ duration: 0.2 }}
+            className={`relative bg-white rounded-2xl shadow-2xl w-full ${maxWidth} max-h-[90vh] flex flex-col z-10`}
+          >
+            <div className="flex items-start justify-between px-6 py-5 border-b border-slate-100 flex-shrink-0">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">{title}</h2>
+                {subtitle && <p className="text-[11px] text-slate-400 mt-0.5">{subtitle}</p>}
+              </div>
+              <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all flex-shrink-0">
+                <FiX className="w-4 h-4" />
+              </button>
             </div>
-            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all flex-shrink-0">
-              <FiX className="w-4 h-4" />
-            </button>
-          </div>
-          <div className="overflow-y-auto flex-1">{children}</div>
-        </motion.div>
-      </div>
+            <div className="overflow-y-auto flex-1">{children}</div>
+          </motion.div>
+        </div>
+      )}
     </AnimatePresence>
   );
+
+  return createPortal(content, document.body);
 }
 
 /* ─── Form field ─────────────────────────────────────────────────── */

@@ -21,11 +21,12 @@ function LocalSkeletonRow() {
 }
 
 export default function DashboardOverview({ sets, loading, onNavigateToSet, onCreateSet, onEditSet, onDeleteSet }) {
-  const [setTypeTab, setSetTypeTab] = useState('MCQ'); // MCQ or CODING
+  const [setTypeTab, setSetTypeTab] = useState('MCQ'); // MCQ, CODING, or DESCRIPTIVE
 
-  // Ensure all sets are active and separate MCQ and Coding sets
+  // Ensure all sets are active and separate MCQ, Coding, and Descriptive sets
   const mcqSets = sets.filter(s => (s.setType || 'MCQ').toUpperCase() === 'MCQ');
   const codingSets = sets.filter(s => (s.setType || 'MCQ').toUpperCase() === 'CODING');
+  const descriptiveSets = sets.filter(s => (s.setType || 'MCQ').toUpperCase() === 'DESCRIPTIVE');
 
   const renderSetsTable = (setsList, emptyMsg) => {
     return (
@@ -106,7 +107,7 @@ export default function DashboardOverview({ sets, loading, onNavigateToSet, onCr
     );
   };
 
-  const activeFilteredSets = setTypeTab === 'MCQ' ? mcqSets : codingSets;
+  const activeFilteredSets = setTypeTab === 'MCQ' ? mcqSets : setTypeTab === 'CODING' ? codingSets : descriptiveSets;
 
   return (
     <div className="w-full space-y-6">
@@ -128,9 +129,9 @@ export default function DashboardOverview({ sets, loading, onNavigateToSet, onCr
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {loading ? (
-          Array(3).fill(0).map((_, i) => <SkeletonCard key={i} />)
+          Array(4).fill(0).map((_, i) => <SkeletonCard key={i} />)
         ) : (
           <>
             <div className="bg-white p-4.5 rounded-2xl border border-slate-200/60 shadow-xs">
@@ -144,6 +145,10 @@ export default function DashboardOverview({ sets, loading, onNavigateToSet, onCr
             <div className="bg-white p-4.5 rounded-2xl border border-slate-200/60 shadow-xs">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Coding Sets</p>
               <h3 className="text-2xl font-bold text-slate-800 mt-1">{codingSets.length}</h3>
+            </div>
+            <div className="bg-white p-4.5 rounded-2xl border border-slate-200/60 shadow-xs">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Descriptive Sets</p>
+              <h3 className="text-2xl font-bold text-slate-800 mt-1">{descriptiveSets.length}</h3>
             </div>
           </>
         )}
@@ -161,7 +166,7 @@ export default function DashboardOverview({ sets, loading, onNavigateToSet, onCr
               </span>
             </div>
 
-            {/* Next-gen sliding toggle selector (MCQ | CODING) */}
+            {/* Next-gen sliding toggle selector (MCQ | CODING | DESCRIPTIVE) */}
             <div className="relative flex bg-slate-100 p-1 rounded-xl text-[10px] font-extrabold border border-slate-200/50 self-start sm:self-auto space-x-1">
               <button
                 type="button"
@@ -198,6 +203,25 @@ export default function DashboardOverview({ sets, loading, onNavigateToSet, onCr
                 )}
                 <span className="relative z-10">CODING</span>
               </button>
+
+              <div className="w-px h-3.5 bg-slate-300 self-center" />
+
+              <button
+                type="button"
+                onClick={() => setSetTypeTab('DESCRIPTIVE')}
+                className={`relative px-4 py-1.5 rounded-lg transition-colors duration-200 cursor-pointer ${
+                  setTypeTab === 'DESCRIPTIVE' ? 'text-[#0B4A99]' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                {setTypeTab === 'DESCRIPTIVE' && (
+                  <motion.div
+                    layoutId="activeSegment"
+                    className="absolute inset-0 bg-white rounded-lg shadow-xs border border-slate-200/10"
+                    transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                  />
+                )}
+                <span className="relative z-10">DESCRIPTIVE</span>
+              </button>
             </div>
           </div>
         </div>
@@ -205,8 +229,10 @@ export default function DashboardOverview({ sets, loading, onNavigateToSet, onCr
         {/* Table */}
         {setTypeTab === 'MCQ' ? (
           renderSetsTable(mcqSets, 'No MCQ question sets found.')
-        ) : (
+        ) : setTypeTab === 'CODING' ? (
           renderSetsTable(codingSets, 'No Coding question sets found.')
+        ) : (
+          renderSetsTable(descriptiveSets, 'No Descriptive question sets found.')
         )}
       </div>
     </div>

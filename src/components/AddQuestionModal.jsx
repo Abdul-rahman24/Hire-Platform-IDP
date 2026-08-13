@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import CustomSelect from './CustomSelect';
 
 const parseOptStr = (opt) => {
@@ -23,10 +25,14 @@ export default function AddQuestionModal({ isOpen, onClose, onSave, initialData,
   // Coding option
   const [language, setLanguage] = useState('python');
 
+  // Descriptive option
+  const [wordLimit, setWordLimit] = useState(500);
+
   const [marks, setMarks] = useState(1);
   const [errors, setErrors] = useState({});
 
   const isCoding = (setType || '').toUpperCase() === 'CODING';
+  const isDescriptive = (setType || '').toUpperCase() === 'DESCRIPTIVE';
 
   useEffect(() => {
     if (isOpen) {
@@ -37,6 +43,8 @@ export default function AddQuestionModal({ isOpen, onClose, onSave, initialData,
 
         if (isCoding) {
           setLanguage(initialData.language || 'python');
+        } else if (isDescriptive) {
+          setWordLimit(initialData.wordLimit !== undefined ? Number(initialData.wordLimit) : 500);
         } else {
           const getOpt = (item, idx, key) => {
             if (item && item[key] !== undefined) return parseOptStr(item[key]);
@@ -53,7 +61,7 @@ export default function AddQuestionModal({ isOpen, onClose, onSave, initialData,
           setCorrectAnswer(cAns || '');
         }
 
-        setMarks(initialData.marks !== undefined ? initialData.marks : (isCoding ? 10 : 2));
+        setMarks(initialData.marks !== undefined ? initialData.marks : (isCoding || isDescriptive ? 10 : 2));
       } else {
         setQuestionSetId(currentQuestionSetId || '');
         setQuestionId(`Q${Math.floor(100 + Math.random() * 900)}`);
@@ -64,13 +72,14 @@ export default function AddQuestionModal({ isOpen, onClose, onSave, initialData,
         setOptionD('');
         setCorrectAnswer('');
         setLanguage('python');
-        setMarks(isCoding ? 10 : 2);
+        setWordLimit(500);
+        setMarks(isCoding || isDescriptive ? 10 : 2);
       }
       setErrors({});
     }
   }, [isOpen, initialData, currentQuestionSetId, setType]);
 
-  if (!isOpen) return null;
+  // Handled in Portal wrapper
 
   const validate = () => {
     const errs = {};
@@ -82,6 +91,8 @@ export default function AddQuestionModal({ isOpen, onClose, onSave, initialData,
 
     if (isCoding) {
       if (!language) errs.language = 'Language is required.';
+    } else if (isDescriptive) {
+      if (wordLimit && Number(wordLimit) <= 0) errs.wordLimit = 'Word limit must be greater than 0.';
     } else {
       const strOptA = parseOptStr(optionA).trim();
       const strOptB = parseOptStr(optionB).trim();
@@ -112,6 +123,15 @@ export default function AddQuestionModal({ isOpen, onClose, onSave, initialData,
         language,
         marks: Number(marks),
       });
+    } else if (isDescriptive) {
+      onSave({
+        questionSetId: parseOptStr(questionSetId).trim(),
+        questionId: parseOptStr(questionId).trim(),
+        question: parseOptStr(questionText).trim(),
+        questionType: 'DESCRIPTIVE',
+        wordLimit: wordLimit ? Number(wordLimit) : null,
+        marks: Number(marks),
+      });
     } else {
       onSave({
         questionSetId: parseOptStr(questionSetId).trim(),
@@ -140,10 +160,25 @@ export default function AddQuestionModal({ isOpen, onClose, onSave, initialData,
     { key: 'D', text: strD },
   ];
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-end bg-slate-900/20 backdrop-blur-sm animate-fade-in">
-      <div className="absolute inset-0" onClick={onClose}></div>
-      <form onSubmit={handleSubmit} className="relative w-full max-w-[440px] h-full bg-white shadow-2xl flex flex-col z-10">
+  const content = (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[9900]">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm"
+            onClick={onClose}
+          />
+          <motion.form
+            onSubmit={handleSubmit}
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'tween', duration: 0.28, ease: [0.25, 0.46, 0.45, 0.94] }}
+            className="fixed right-0 top-0 w-full max-w-[440px] h-full bg-white shadow-2xl flex flex-col z-10"
+          >
         {/* Header */}
         <div className="flex items-start justify-between px-5 py-4 border-b border-slate-100">
           <div>
@@ -236,6 +271,51 @@ export default function AddQuestionModal({ isOpen, onClose, onSave, initialData,
                   ]}
                 />
                 {errors.language && <p className="text-[9px] text-red-500 mt-0.5">{errors.language}</p>}
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                  Marks <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  value={marks}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setMarks(val === '' ? '' : parseInt(val, 10));
+                  }}
+                  placeholder="10"
+                  disabled={loading}
+                  className={`w-full border rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none transition-all h-9 ${
+                    errors.marks ? 'border-red-400' : 'border-slate-200 focus:ring-1.5 focus:ring-[#0B4A99] focus:border-[#0B4A99]'
+                  }`}
+                />
+                {errors.marks && <p className="text-[9px] text-red-500 mt-0.5">{errors.marks}</p>}
+              </div>
+            </div>
+          ) : isDescriptive ? (
+            /* Descriptive Specific Fields */
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                  Word Limit <span className="text-slate-400 font-medium">(Optional)</span>
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  value={wordLimit}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setWordLimit(val === '' ? '' : parseInt(val, 10));
+                  }}
+                  placeholder="500"
+                  disabled={loading}
+                  className={`w-full border rounded-lg px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none transition-all h-9 ${
+                    errors.wordLimit ? 'border-red-400' : 'border-slate-200 focus:ring-1.5 focus:ring-[#0B4A99] focus:border-[#0B4A99]'
+                  }`}
+                />
+                {errors.wordLimit && <p className="text-[9px] text-red-500 mt-0.5">{errors.wordLimit}</p>}
               </div>
 
               <div>
@@ -429,7 +509,11 @@ export default function AddQuestionModal({ isOpen, onClose, onSave, initialData,
             ) : initialData ? 'Save Changes' : 'Save Question'}
           </button>
         </div>
-      </form>
-    </div>
+          </motion.form>
+        </div>
+      )}
+    </AnimatePresence>
   );
+
+  return createPortal(content, document.body);
 }

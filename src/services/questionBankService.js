@@ -3,6 +3,7 @@ import api from '../api/axios';
 const formatQuestionPayload = (rawPayload) => {
   const payload = rawPayload || {};
   const isCoding = (payload.questionType || '').toUpperCase() === 'CODING';
+  const isDescriptive = (payload.questionType || '').toUpperCase() === 'DESCRIPTIVE';
 
   if (isCoding) {
     return {
@@ -14,6 +15,27 @@ const formatQuestionPayload = (rawPayload) => {
       question: payload.question || payload.questionText || payload.text || '',
       language: payload.language || 'python',
       marks: Number(payload.marks !== undefined ? payload.marks : 10),
+    };
+  }
+
+  if (isDescriptive) {
+    return {
+      questionId: payload.questionId || payload.id,
+      questionSetId: payload.questionSetId,
+      questionType: 'DESCRIPTIVE',
+      question_type: 'DESCRIPTIVE',
+      type: 'DESCRIPTIVE',
+      question: payload.question || payload.questionText || payload.text || '',
+      wordLimit: payload.wordLimit ? Number(payload.wordLimit) : 500,
+      marks: Number(payload.marks !== undefined ? payload.marks : 10),
+      // Provide dummy fields to satisfy strict backend MCQ schema:
+      options: [
+        { optionId: 'A', text: 'Descriptive Option' },
+        { optionId: 'B', text: 'Descriptive Option' },
+        { optionId: 'C', text: 'Descriptive Option' },
+        { optionId: 'D', text: 'Descriptive Option' },
+      ],
+      correctOptionId: 'A',
     };
   }
 

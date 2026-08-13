@@ -1,5 +1,6 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export function StatsCard({ icon, value, label, subtitle, color = 'blue', trend }) {
   const colors = {
@@ -116,79 +117,117 @@ export function SkeletonCard() {
 }
 
 export function ConfirmDialog({ isOpen, title, description, onConfirm, onCancel, confirmLabel = 'Delete', danger = true }) {
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm">
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full mx-4"
-      >
-        <h3 className="text-sm font-bold text-slate-800 mb-2">{title}</h3>
-        <p className="text-xs text-slate-500 mb-6">{description}</p>
-        <div className="flex space-x-3">
-          <button onClick={onCancel} className="flex-1 px-4 py-2 border border-slate-200 text-slate-600 rounded-lg font-semibold text-xs hover:bg-slate-50 transition-colors">
-            Cancel
-          </button>
-          <button onClick={onConfirm} className={`flex-1 px-4 py-2 ${danger ? 'bg-rose-600 hover:bg-rose-700' : 'bg-[#1D5DB8] hover:bg-[#1649a0]'} text-white rounded-lg font-semibold text-xs transition-colors`}>
-            {confirmLabel}
-          </button>
+  const content = (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[9900] flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-900/30 backdrop-blur-sm"
+            onClick={onCancel}
+          />
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0, y: 10 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.95, opacity: 0, y: 10 }}
+            transition={{ duration: 0.2 }}
+            className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full z-10"
+          >
+            <h3 className="text-sm font-bold text-slate-800 mb-2">{title}</h3>
+            <p className="text-xs text-slate-500 mb-6">{description}</p>
+            <div className="flex space-x-3">
+              <button onClick={onCancel} className="flex-1 px-4 py-2 border border-slate-200 text-slate-600 rounded-lg font-semibold text-xs hover:bg-slate-50 transition-colors">
+                Cancel
+              </button>
+              <button onClick={onConfirm} className={`flex-1 px-4 py-2 ${danger ? 'bg-rose-600 hover:bg-rose-700' : 'bg-[#1D5DB8] hover:bg-[#1649a0]'} text-white rounded-lg font-semibold text-xs transition-colors`}>
+                {confirmLabel}
+              </button>
+            </div>
+          </motion.div>
         </div>
-      </motion.div>
-    </div>
+      )}
+    </AnimatePresence>
   );
+
+  return createPortal(content, document.body);
 }
 
 export function Modal({ isOpen, onClose, title, subtitle, children, maxWidth = 'max-w-md' }) {
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm">
-      <div className="absolute inset-0" onClick={onClose} />
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className={`relative bg-white rounded-2xl shadow-2xl w-full ${maxWidth} mx-4 flex flex-col max-h-[90vh]`}
-      >
-        <div className="flex items-start justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
-          <div>
-            <h2 className="text-sm font-bold text-slate-800">{title}</h2>
-            {subtitle && <p className="text-[10px] text-slate-400 mt-0.5">{subtitle}</p>}
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors ml-4">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
+  const content = (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[9900] flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-900/30 backdrop-blur-sm"
+            onClick={onClose}
+          />
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0, y: 10 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.95, opacity: 0, y: 10 }}
+            transition={{ duration: 0.2 }}
+            className={`relative bg-white rounded-2xl shadow-2xl w-full ${maxWidth} flex flex-col max-h-[90vh] z-10`}
+          >
+            <div className="flex items-start justify-between px-6 py-4 border-b border-slate-100 flex-shrink-0">
+              <div>
+                <h2 className="text-sm font-bold text-slate-800">{title}</h2>
+                {subtitle && <p className="text-[10px] text-slate-400 mt-0.5">{subtitle}</p>}
+              </div>
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors ml-4">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1">{children}</div>
+          </motion.div>
         </div>
-        <div className="overflow-y-auto flex-1">{children}</div>
-      </motion.div>
-    </div>
+      )}
+    </AnimatePresence>
   );
+
+  return createPortal(content, document.body);
 }
 
 export function Drawer({ isOpen, onClose, title, subtitle, children, width = 'max-w-[420px]' }) {
-  if (!isOpen) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-end bg-slate-900/20 backdrop-blur-sm">
-      <div className="absolute inset-0" onClick={onClose} />
-      <motion.div
-        initial={{ x: '100%' }}
-        animate={{ x: 0 }}
-        exit={{ x: '100%' }}
-        transition={{ type: 'tween', duration: 0.25 }}
-        className={`relative w-full ${width} h-full bg-white shadow-2xl flex flex-col z-10`}
-      >
-        <div className="flex items-start justify-between px-5 py-4 border-b border-slate-100 flex-shrink-0">
-          <div>
-            <h2 className="text-sm font-bold text-slate-800">{title}</h2>
-            {subtitle && <p className="text-[10px] text-slate-400 mt-0.5">{subtitle}</p>}
-          </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
+  const content = (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[9900]">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm"
+            onClick={onClose}
+          />
+          <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'tween', duration: 0.28, ease: [0.25, 0.46, 0.45, 0.94] }}
+            className={`fixed right-0 top-0 w-full ${width} h-full bg-white shadow-2xl flex flex-col z-10`}
+          >
+            <div className="flex items-start justify-between px-5 py-4 border-b border-slate-100 flex-shrink-0">
+              <div>
+                <h2 className="text-sm font-bold text-slate-800">{title}</h2>
+                {subtitle && <p className="text-[10px] text-slate-400 mt-0.5">{subtitle}</p>}
+              </div>
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">{children}</div>
+          </motion.div>
         </div>
-        <div className="flex-1 overflow-y-auto">{children}</div>
-      </motion.div>
-    </div>
+      )}
+    </AnimatePresence>
   );
+
+  return createPortal(content, document.body);
 }
 
 export function Stepper({ steps, currentStep }) {

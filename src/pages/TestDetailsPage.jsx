@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -69,6 +70,11 @@ function QuestionCard({ question, idx }) {
             );
           })}
         </div>
+      ) : qType === 'DESCRIPTIVE' ? (
+        <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 text-[10px] font-mono text-slate-500 flex items-center space-x-2">
+          <span>Word Limit:</span>
+          <span className="text-[#0B4A99] font-bold">{question.wordLimit || 500} words</span>
+        </div>
       ) : (
         <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 text-[10px] font-mono text-slate-500">
           Language Parameter: <span className="text-blue-600 font-bold capitalize">{question.language || 'python'}</span>
@@ -79,83 +85,97 @@ function QuestionCard({ question, idx }) {
 }
 
 /* ─── Section-by-Section Complete View Modal ───────────────────────── */
-function CompleteViewModal({ test, onClose }) {
+function CompleteViewModal({ test, onClose, isOpen }) {
   if (!test) return null;
   const sections = test.sections || [];
 
-  return (
-    <div className="fixed inset-0 z-[900] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fade-in">
-      <div className="absolute inset-0" onClick={onClose} />
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[88vh] flex flex-col z-10 overflow-hidden"
-      >
-        <div className="flex items-start justify-between px-6 py-5 border-b border-slate-100 flex-shrink-0 bg-slate-50/50">
-          <div>
-            <h2 className="text-base font-bold text-slate-900">Complete Test Structure</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Metadata, sections, and nested questions</p>
-          </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
-        </div>
-
-        <div className="overflow-y-auto flex-1 p-6 space-y-5">
-          {/* Test Header Card */}
-          <div className="bg-[#0B4A99] text-white rounded-[14px] p-5 shadow-sm">
-            <h3 className="font-bold text-lg">{test.title}</h3>
-            {test.description && <p className="text-xs text-blue-155 mt-1 font-medium leading-relaxed">{test.description}</p>}
-            <div className="flex items-center space-x-4 mt-3 text-blue-100 text-xs font-semibold">
-              <span>⏱ Total Duration: {test.durationMinutes || 90} min</span>
-              <span>• 🏆 Total Marks: {test.totalMarks || 100}</span>
-              <span>• 📝 Sections: {sections.length}</span>
+  const content = (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[9900] flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm"
+            onClick={onClose}
+          />
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0, y: 10 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.95, opacity: 0, y: 10 }}
+            transition={{ duration: 0.2 }}
+            className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[88vh] flex flex-col z-10 overflow-hidden"
+          >
+            <div className="flex items-start justify-between px-6 py-5 border-b border-slate-100 flex-shrink-0 bg-slate-50/50">
+              <div>
+                <h2 className="text-base font-bold text-slate-900">Complete Test Structure</h2>
+                <p className="text-xs text-slate-400 mt-0.5">Metadata, sections, and nested questions</p>
+              </div>
+              <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
             </div>
-          </div>
 
-          {/* Sections List */}
-          <div className="space-y-6">
-            {sections.length === 0 ? (
-              <p className="text-xs text-slate-400 text-center py-6">No sections found in this test.</p>
-            ) : (
-              sections.map((sec, secIdx) => {
-                const questions = sec.questions || [];
-                return (
-                  <div key={sec.sectionId || secIdx} className="space-y-3.5 border-l-2 border-slate-100 pl-4">
-                    <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-lg">
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                          Section {sec.order || (secIdx + 1)}: {sec.sectionName || sec.title}
-                        </h4>
-                        <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
-                          Set ID: {sec.questionSetId} | Type: {sec.questionType}
-                        </p>
-                      </div>
-                      <div className="flex space-x-2 text-[10px] font-bold">
-                        <span className="bg-blue-50 text-[#0B4A99] px-2 py-0.5 rounded">{sec.durationMinutes} min limit</span>
-                        <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded">{sec.marks} marks</span>
-                      </div>
-                    </div>
+            <div className="overflow-y-auto flex-1 p-6 space-y-5">
+              {/* Test Header Card */}
+              <div className="bg-[#0B4A99] text-white rounded-[14px] p-5 shadow-sm">
+                <h3 className="font-bold text-lg">{test.title}</h3>
+                {test.description && <p className="text-xs text-blue-155 mt-1 font-medium leading-relaxed">{test.description}</p>}
+                <div className="flex items-center space-x-4 mt-3 text-blue-100 text-xs font-semibold">
+                  <span>⏱ Total Duration: {test.durationMinutes || 90} min</span>
+                  <span>• 🏆 Total Marks: {test.totalMarks || 100}</span>
+                  <span>• 📝 Sections: {sections.length}</span>
+                </div>
+              </div>
 
-                    {/* Section Questions */}
-                    <div className="space-y-3">
-                      {questions.length === 0 ? (
-                        <p className="text-[10px] text-slate-400 italic">No questions imported in this section.</p>
-                      ) : (
-                        questions.map((q, qi) => (
-                          <QuestionCard key={q.questionId || qi} question={q} idx={qi} />
-                        ))
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
+              {/* Sections List */}
+              <div className="space-y-6">
+                {sections.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-6">No sections found in this test.</p>
+                ) : (
+                  sections.map((sec, secIdx) => {
+                    const questions = sec.questions || [];
+                    return (
+                      <div key={sec.sectionId || secIdx} className="space-y-3.5 border-l-2 border-slate-100 pl-4">
+                        <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-lg">
+                          <div>
+                            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                              Section {sec.order || (secIdx + 1)}: {sec.sectionName || sec.title}
+                            </h4>
+                            <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
+                              Set ID: {sec.questionSetId} | Type: {sec.questionType}
+                            </p>
+                          </div>
+                          <div className="flex space-x-2 text-[10px] font-bold">
+                            <span className="bg-blue-50 text-[#0B4A99] px-2 py-0.5 rounded">{sec.durationMinutes} min limit</span>
+                            <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded">{sec.marks} marks</span>
+                          </div>
+                        </div>
+
+                        {/* Section Questions */}
+                        <div className="space-y-3">
+                          {questions.length === 0 ? (
+                            <p className="text-[10px] text-slate-400 italic">No questions imported in this section.</p>
+                          ) : (
+                            questions.map((q, qi) => (
+                              <QuestionCard key={q.questionId || qi} question={q} idx={qi} />
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </motion.div>
         </div>
-      </motion.div>
-    </div>
+      )}
+    </AnimatePresence>
   );
+
+  return createPortal(content, document.body);
 }
 
 /* ─── Main Details Page ───────────────────────────────────────────── */
@@ -403,7 +423,6 @@ export default function TestDetailsPage() {
                   );
                 })()}
               </div>
-              <p className="text-xs text-slate-400 font-mono mt-0.5">Test ID: {testData.testId || id}</p>
               {testData.description && (
                 <p className="text-xs text-slate-550 font-medium mt-1 leading-normal">{testData.description}</p>
               )}
@@ -520,9 +539,16 @@ export default function TestDetailsPage() {
             {sections.map((sec, idx) => {
               const secId = sec.sectionId || sec.id;
               const isActive = idx === activeSectionIdx;
-              const hasCoding = (sec.questions && sec.questions.some(q => (q.type || q.questionType || '').toUpperCase() === 'CODING')) || (sec.questionType || '').toUpperCase() === 'CODING';
-              const sectionType = hasCoding ? 'CODING' : 'MCQ';
-              const isCoding = sectionType === 'CODING';
+              const qType = (sec.questionType || '').toUpperCase();
+              const hasCoding = (sec.questions && sec.questions.some(q => (q.type || q.questionType || '').toUpperCase() === 'CODING')) || qType === 'CODING';
+              const hasDescriptive = (sec.questions && sec.questions.some(q => (q.type || q.questionType || '').toUpperCase() === 'DESCRIPTIVE')) || qType === 'DESCRIPTIVE';
+              
+              let sectionType = 'MCQ';
+              if (hasCoding) {
+                sectionType = 'CODING';
+              } else if (hasDescriptive) {
+                sectionType = 'DESCRIPTIVE';
+              }
               return (
                 <button
                   key={secId || idx}
@@ -541,7 +567,11 @@ export default function TestDetailsPage() {
                   </span>
                   <span>{sec.sectionName || sec.title}</span>
                   <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${
-                    isCoding ? 'bg-blue-100 text-blue-700' : 'bg-indigo-100 text-indigo-700'
+                    sectionType === 'CODING' 
+                      ? 'bg-blue-100 text-blue-700' 
+                      : sectionType === 'DESCRIPTIVE'
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-indigo-100 text-indigo-700'
                   }`}>
                     {sectionType}
                   </span>
@@ -565,14 +595,23 @@ export default function TestDetailsPage() {
                 <div className="flex items-center space-x-2 flex-wrap">
                   <h3 className="font-bold text-slate-800 text-sm">{activeSection.sectionName || activeSection.title}</h3>
                   {(() => {
-                    const hasCoding = (activeSection.questions && activeSection.questions.some(q => (q.type || q.questionType || '').toUpperCase() === 'CODING')) || (activeSection.questionType || '').toUpperCase() === 'CODING';
-                    const sectionType = hasCoding ? 'CODING' : 'MCQ';
-                    const isCoding = sectionType === 'CODING';
+                    const qType = (activeSection.questionType || '').toUpperCase();
+                    const hasCoding = (activeSection.questions && activeSection.questions.some(q => (q.type || q.questionType || '').toUpperCase() === 'CODING')) || qType === 'CODING';
+                    const hasDescriptive = (activeSection.questions && activeSection.questions.some(q => (q.type || q.questionType || '').toUpperCase() === 'DESCRIPTIVE')) || qType === 'DESCRIPTIVE';
+                    
+                    let sectionType = 'MCQ';
+                    if (hasCoding) {
+                      sectionType = 'CODING';
+                    } else if (hasDescriptive) {
+                      sectionType = 'DESCRIPTIVE';
+                    }
                     return (
                       <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
-                        isCoding 
+                        sectionType === 'CODING' 
                           ? 'bg-blue-50 text-blue-600 border border-blue-100' 
-                          : 'bg-indigo-50 text-indigo-600 border border-indigo-100'
+                          : sectionType === 'DESCRIPTIVE'
+                            ? 'bg-amber-50 text-amber-600 border border-amber-100'
+                            : 'bg-indigo-50 text-indigo-600 border border-indigo-100'
                       }`}>
                         {sectionType}
                       </span>
@@ -701,7 +740,11 @@ export default function TestDetailsPage() {
       />
 
       {/* Complete View Modal */}
-      {completeView && <CompleteViewModal test={testData} onClose={() => setCompleteView(false)} />}
+      <CompleteViewModal 
+        isOpen={completeView}
+        test={testData} 
+        onClose={() => setCompleteView(false)} 
+      />
 
       {/* Nested Section Drawer (Slide-over Drawer) */}
       <SectionDrawer

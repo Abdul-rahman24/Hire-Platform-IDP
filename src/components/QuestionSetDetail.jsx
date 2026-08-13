@@ -39,6 +39,7 @@ export default function QuestionSetDetail({
   const [isImportOpen, setIsImportOpen] = useState(false);
 
   const isCodingSet = (set?.setType || '').toUpperCase() === 'CODING';
+  const isDescriptiveSet = (set?.setType || '').toUpperCase() === 'DESCRIPTIVE';
 
   // Search filter by Question ID or Question Text
   const filteredQuestions = useMemo(() => {
@@ -83,9 +84,11 @@ export default function QuestionSetDetail({
             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase ${
               isCodingSet 
                 ? 'bg-blue-50 text-blue-700 border-blue-100' 
-                : 'bg-indigo-50 text-indigo-700 border-indigo-100'
+                : isDescriptiveSet
+                  ? 'bg-amber-50 text-amber-700 border-amber-100'
+                  : 'bg-indigo-50 text-indigo-700 border-indigo-100'
             }`}>
-              {isCodingSet ? 'Coding Set' : 'MCQ Set'}
+              {isCodingSet ? 'Coding Set' : isDescriptiveSet ? 'Descriptive Set' : 'MCQ Set'}
             </span>
           </div>
           <p className="text-slate-400 text-xs mt-1 font-medium">Set ID: {set?.questionSetId || set?.id}</p>
@@ -147,6 +150,7 @@ export default function QuestionSetDetail({
                 <th className="px-5 py-3 w-[15%]">Question ID</th>
                 <th className="px-5 py-3 w-[45%]">Question Text</th>
                 {isCodingSet && <th className="px-5 py-3 w-[15%]">Language</th>}
+                {isDescriptiveSet && <th className="px-5 py-3 w-[15%]">Word Limit</th>}
                 <th className="px-5 py-3 w-[12%]">Marks</th>
                 <th className="px-5 py-3 text-right w-[23%]">Actions</th>
               </tr>
@@ -156,7 +160,7 @@ export default function QuestionSetDetail({
                 Array(4).fill(0).map((_, i) => <LocalSkeletonRow key={i} />)
               ) : paginatedQuestions.length === 0 ? (
                 <tr>
-                  <td colSpan={isCodingSet ? 5 : 4} className="px-5 py-10 text-center text-xs text-slate-400">
+                  <td colSpan={isCodingSet || isDescriptiveSet ? 5 : 4} className="px-5 py-10 text-center text-xs text-slate-400">
                     {search ? 'No questions match your search.' : 'No questions found. Click + Add Question or Import CSV to create one.'}
                   </td>
                 </tr>
@@ -177,7 +181,14 @@ export default function QuestionSetDetail({
                       </span>
                     </td>
                   )}
-                  <td className="px-5 py-4 text-xs font-bold text-slate-700">{q.marks !== undefined ? q.marks : (isCodingSet ? 10 : 2)}</td>
+                  {isDescriptiveSet && (
+                    <td className="px-5 py-4 text-xs font-semibold text-slate-700">
+                      <span className="bg-slate-100 text-slate-700 font-bold px-2 py-0.5 rounded text-[10px]">
+                        {q.wordLimit || 500} words
+                      </span>
+                    </td>
+                  )}
+                  <td className="px-5 py-4 text-xs font-bold text-slate-700">{q.marks !== undefined ? q.marks : (isCodingSet || isDescriptiveSet ? 10 : 2)}</td>
                   <td className="px-5 py-4 text-right">
                     <div className="flex items-center justify-end space-x-1">
                       {/* View Button */}
@@ -286,6 +297,19 @@ export default function QuestionSetDetail({
                     </div>
                   </div>
                 </div>
+              ) : isDescriptiveSet ? (
+                /* Descriptive Set View Details */
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Descriptive Metadata</p>
+                  <div className="bg-slate-50 border border-slate-200/60 p-3.5 rounded-xl space-y-2 font-semibold">
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span>Word Limit</span>
+                      <span className="bg-amber-50 text-amber-700 border border-amber-100 px-2.5 py-0.5 rounded-md text-[10px]">
+                        {viewQuestionModal.wordLimit || 500} words
+                      </span>
+                    </div>
+                  </div>
+                </div>
               ) : (
                 /* MCQ Options Detail View */
                 <div>
@@ -321,7 +345,7 @@ export default function QuestionSetDetail({
               )}
 
               <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-[10px]">
-                <span className="text-slate-400 font-medium">Marks: <strong className="text-slate-750 text-xs">{viewQuestionModal.marks !== undefined ? viewQuestionModal.marks : (isCodingSet ? 10 : 2)}</strong></span>
+                <span className="text-slate-400 font-medium">Marks: <strong className="text-slate-750 text-xs">{viewQuestionModal.marks !== undefined ? viewQuestionModal.marks : (isCodingSet || isDescriptiveSet ? 10 : 2)}</strong></span>
                 <span className="text-slate-400 font-medium">Set ID: <strong className="text-slate-750 text-xs">{viewQuestionModal.questionSetId || set?.questionSetId}</strong></span>
               </div>
             </div>

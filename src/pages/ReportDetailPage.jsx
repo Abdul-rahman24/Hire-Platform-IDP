@@ -7,6 +7,7 @@ import {
 } from 'react-icons/fi';
 import { fetchTestReport, fetchTestCandidates, API_BASE } from '../api/reportsApi';
 import { useReportsData } from '../hooks/useReportsData';
+import { motion, AnimatePresence } from 'framer-motion';
 import ExcelJS from 'exceljs';
 import { useToast } from '../components/tc/Toast';
 
@@ -33,6 +34,13 @@ const isCodingSection = (sec) => {
   const hasCodingQuestion = sec.questions?.some(q => (q.questionType || q.type || '').toUpperCase() === 'CODING');
   const hasCodingName = sec.sectionName?.toUpperCase().includes('CODING');
   return !!(hasCodingQuestion || hasCodingName);
+};
+
+const isDescriptiveSection = (sec) => {
+  if (!sec) return false;
+  const hasDescriptiveQuestion = sec.questions?.some(q => (q.questionType || q.type || '').toUpperCase() === 'DESCRIPTIVE');
+  const hasDescriptiveName = sec.sectionName?.toUpperCase().includes('DESCRIPTIVE');
+  return !!(hasDescriptiveQuestion || hasDescriptiveName);
 };
 
 /* ── Anomaly Banner ── */
@@ -105,12 +113,16 @@ function CandidateDetail({ c, testId }) {
 
   const totalMarksVal = c.sectionWisePerformance?.reduce((sum, sec) => sum + safeNum(sec.totalMarks), 0) || safeNum(c.totalMarks);
   const hasCoding = !!c.sectionWisePerformance?.some(sec => isCodingSection(sec));
+  const hasDescriptive = !!c.sectionWisePerformance?.some(sec => isDescriptiveSection(sec));
 
   const codingSection = c.sectionWisePerformance?.find(
     (sec) => isCodingSection(sec)
   );
+  const descriptiveSection = c.sectionWisePerformance?.find(
+    (sec) => isDescriptiveSection(sec)
+  );
   const mcqSections = c.sectionWisePerformance?.filter(
-    (sec) => !isCodingSection(sec)
+    (sec) => !isCodingSection(sec) && !isDescriptiveSection(sec)
   ) || [];
 
   const mcqScore = mcqSections.reduce((sum, sec) => sum + safeNum(sec.score), 0);
@@ -118,14 +130,27 @@ function CandidateDetail({ c, testId }) {
 
   const codingScore = codingSection ? safeNum(codingSection.score) : 0;
   const codingTotal = codingSection ? safeNum(codingSection.totalMarks) : 0;
-
   const numCodingQuestions = codingSection?.questions?.length || 0;
   const answeredCodingCount = codingSection?.questions?.filter(q => q.studentAnswer && q.studentAnswer.trim() !== '').length || 0;
 
+  const descriptiveScore = descriptiveSection ? safeNum(descriptiveSection.score) : 0;
+  const descriptiveTotal = descriptiveSection ? safeNum(descriptiveSection.totalMarks) : 0;
+  const numDescriptiveQuestions = descriptiveSection?.questions?.length || 0;
+  const answeredDescriptiveCount = descriptiveSection?.questions?.filter(q => q.studentAnswer && q.studentAnswer.trim() !== '').length || 0;
+
+  const totalColumns = 8 + (hasCoding ? 1 : 0) + (hasDescriptive ? 1 : 0);
+
   return (
     <tr>
-      <td colSpan="9" className="px-0 py-0">
-        <div className="mx-5 my-3 bg-slate-50 rounded-xl border border-slate-200/60 overflow-hidden">
+      <td colSpan={totalColumns} className="px-0 py-0">
+        <motion.div
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: 'auto', opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          transition={{ duration: 0.25, ease: 'easeInOut' }}
+          className="overflow-hidden"
+        >
+          <div className="mx-0 my-3 bg-slate-50 rounded-xl border border-slate-200/60 overflow-hidden">
           {/* Header */}
           <div className="px-5 py-3 border-b border-slate-200/60 flex items-center justify-between">
             <div className="flex items-center">
@@ -153,41 +178,82 @@ function CandidateDetail({ c, testId }) {
           </div>
 
           {/* Section Score Breakdown - Responsive */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 bg-[#f8fafc] border-b border-slate-200/40">
-            <div className="bg-white rounded-lg p-3 border border-slate-200/60 shadow-xs flex items-center justify-between">
-              <div>
-                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">MCQ Marks</p>
-                <p className="text-sm font-black text-[#0B4A99] mt-0.5">{mcqScore}/{mcqTotal}</p>
-              </div>
-              <span className="text-[9px] px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-bold border border-blue-100">
-                MCQ Section
-              </span>
-            </div>
+          {(() => {
+            const colsClass = hasCoding && hasDescriptive 
+              ? 'grid-cols-1 sm:grid-cols-5' 
+              : (hasCoding || hasDescriptive) 
+                ? 'grid-cols-1 sm:grid-cols-3' 
+                : 'grid-cols-1';
+            return (
+              <div className={`grid ${colsClass} gap-3 p-4 bg-[#f8fafc] border-b border-slate-200/40`}>
+                <div className="bg-white rounded-lg p-2.5 border border-slate-200/60 shadow-xs flex flex-col justify-between min-w-0">
+                  <div className="flex items-center justify-between gap-1">
+                    <p className="text-[8px] text-slate-400 font-bold uppercase tracking-wider truncate">MCQ Marks</p>
+                    <span className="text-[8px] px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 font-bold border border-blue-100 flex-shrink-0">
+                      MCQ
+                    </span>
+                  </div>
+                  <p className="text-sm font-black text-[#0B4A99] mt-2">{mcqScore}/{mcqTotal}</p>
+                </div>
 
-            <div className="bg-white rounded-lg p-3 border border-slate-200/60 shadow-xs flex items-center justify-between">
-              <div>
-                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Coding Marks</p>
-                <p className="text-sm font-black text-emerald-700 mt-0.5">
-                  {codingSection ? `${codingScore}/${codingTotal}` : 'N/A'}
-                </p>
-              </div>
-              <span className="text-[9px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold border border-emerald-100">
-                Coding Section
-              </span>
-            </div>
+                {hasCoding && (
+                  <>
+                    <div className="bg-white rounded-lg p-2.5 border border-slate-200/60 shadow-xs flex flex-col justify-between min-w-0">
+                      <div className="flex items-center justify-between gap-1">
+                        <p className="text-[8px] text-slate-400 font-bold uppercase tracking-wider truncate">Coding Marks</p>
+                        <span className="text-[8px] px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 font-bold border border-emerald-100 flex-shrink-0">
+                          Coding
+                        </span>
+                      </div>
+                      <p className="text-sm font-black text-emerald-700 mt-2">
+                        {codingSection ? `${codingScore}/${codingTotal}` : 'N/A'}
+                      </p>
+                    </div>
 
-            <div className="bg-white rounded-lg p-3 border border-slate-200/60 shadow-xs flex items-center justify-between">
-              <div>
-                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Answered Coding</p>
-                <p className="text-sm font-black text-amber-700 mt-0.5">
-                  {codingSection ? `${answeredCodingCount}/${numCodingQuestions}` : '-'}
-                </p>
+                    <div className="bg-white rounded-lg p-2.5 border border-slate-200/60 shadow-xs flex flex-col justify-between min-w-0">
+                      <div className="flex items-center justify-between gap-1">
+                        <p className="text-[8px] text-slate-400 font-bold uppercase tracking-wider truncate">Answered Coding</p>
+                        <span className="text-[8px] px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 font-bold border border-amber-100 flex-shrink-0">
+                          Submit
+                        </span>
+                      </div>
+                      <p className="text-sm font-black text-amber-700 mt-2">
+                        {codingSection ? `${answeredCodingCount}/${numCodingQuestions}` : '-'}
+                      </p>
+                    </div>
+                  </>
+                )}
+
+                {hasDescriptive && (
+                  <>
+                    <div className="bg-white rounded-lg p-2.5 border border-slate-200/60 shadow-xs flex flex-col justify-between min-w-0">
+                      <div className="flex items-center justify-between gap-1">
+                        <p className="text-[8px] text-slate-400 font-bold uppercase tracking-wider truncate">Descriptive Marks</p>
+                        <span className="text-[8px] px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-750 font-bold border border-indigo-100 flex-shrink-0">
+                          Desc.
+                        </span>
+                      </div>
+                      <p className="text-sm font-black text-indigo-700 mt-2">
+                        {descriptiveSection ? `${descriptiveScore}/${descriptiveTotal}` : 'N/A'}
+                      </p>
+                    </div>
+
+                    <div className="bg-white rounded-lg p-2.5 border border-slate-200/60 shadow-xs flex flex-col justify-between min-w-0">
+                      <div className="flex items-center justify-between gap-1">
+                        <p className="text-[8px] text-slate-400 font-bold uppercase tracking-wider truncate">Answered Descriptive</p>
+                        <span className="text-[8px] px-1.5 py-0.2 rounded bg-violet-50 text-violet-750 font-bold border border-violet-100 flex-shrink-0">
+                          Submit
+                        </span>
+                      </div>
+                      <p className="text-sm font-black text-violet-750 mt-2">
+                        {descriptiveSection ? `${answeredDescriptiveCount}/${numDescriptiveQuestions}` : '-'}
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
-              <span className="text-[9px] px-2 py-0.5 rounded bg-amber-50 text-amber-700 font-bold border border-amber-100">
-                Submissions
-              </span>
-            </div>
-          </div>
+            );
+          })()}
 
           {/* Stats Grid */}
           <div className="grid grid-cols-2 md:grid-cols-6 bg-white border-y border-slate-200/40">
@@ -236,18 +302,29 @@ function CandidateDetail({ c, testId }) {
               )}
             </div>
 
-            {hasCoding && (
-              <button
-                onClick={() => navigate(`/reports/${testId}/candidates/${encodeURIComponent(c.mailId)}/review`)}
-                className="flex items-center px-3 py-1.5 bg-[#0B4A99] hover:bg-[#083A78] text-white rounded-lg text-[10px] font-bold transition-all shadow-xs cursor-pointer border border-[#0B4A99]"
-              >
-                Code Review
-              </button>
-            )}
+            <div className="flex items-center space-x-2">
+              {hasCoding && (
+                <button
+                  onClick={() => navigate(`/reports/${testId}/candidates/${encodeURIComponent(c.mailId)}/review`)}
+                  className="flex items-center px-3 py-1.5 bg-[#0B4A99] hover:bg-[#083A78] text-white rounded-lg text-[10px] font-bold transition-all shadow-xs cursor-pointer border border-[#0B4A99]"
+                >
+                  Code Review
+                </button>
+              )}
+              {hasDescriptive && (
+                <button
+                  onClick={() => navigate(`/reports/${testId}/candidates/${encodeURIComponent(c.mailId)}/descriptive-review`)}
+                  className="flex items-center px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[10px] font-bold transition-all shadow-xs cursor-pointer border border-amber-500"
+                >
+                  Descriptive Review
+                </button>
+              )}
+            </div>
           </div>
         </div>
-      </td>
-    </tr>
+      </motion.div>
+    </td>
+  </tr>
   );
 }
 
@@ -497,6 +574,15 @@ export default function ReportDetailPage() {
 
   // Funnel bar width
   const completedPct = effectiveTotal > 0 ? (completed / effectiveTotal) * 100 : 0;
+
+  const reportsHasDescriptive = !!(
+    candidates.some(c => c.sectionWisePerformance?.some(sec => isDescriptiveSection(sec))) ||
+    report?.sections?.some(sec => isDescriptiveSection(sec))
+  );
+  const reportsHasCoding = !!(
+    candidates.some(c => c.sectionWisePerformance?.some(sec => isCodingSection(sec))) ||
+    report?.sections?.some(sec => isCodingSection(sec))
+  );
 
   return (
     <div className="w-full space-y-5">
@@ -842,6 +928,7 @@ export default function ReportDetailPage() {
             >
               <option value="all">All Candidates</option>
               <option value="pending">Pending Coding Review</option>
+              <option value="pending_descriptive">Pending Descriptive Review</option>
               <option value="validated">Validated / MCQ Only</option>
             </select>
 
@@ -873,18 +960,19 @@ export default function ReportDetailPage() {
         )}
 
         <div className="overflow-x-auto overflow-y-hidden scrollbar-thin">
-          <table className="w-full table-fixed min-w-[880px]">
+          <table className="w-full table-fixed min-w-full">
             <thead>
-              <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/20">
-                <th className="px-2 py-3 w-10 text-center"></th>
+              <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/20 whitespace-nowrap">
+                <th className="px-2 py-3 w-[3%] text-center"></th>
                 <th className="px-3 py-3 text-left w-auto">Candidate</th>
-                <th className="px-2 py-3 text-center w-[85px]">MCQ %</th>
-                <th className="px-2 py-3 text-center w-[85px]">Coding %</th>
-                <th className="px-2 py-3 text-center w-[90px]">Overall %</th>
-                <th className="px-2 py-3 text-center w-[100px]">Status</th>
-                <th className="px-2 py-3 text-center w-[85px]">Time</th>
-                <th className="px-2 py-3 text-center w-[90px]">Warnings</th>
-                <th className="px-2 py-3 text-center w-[130px]">Proctoring Status</th>
+                <th className="px-2 py-3 text-center w-[8%]">MCQ %</th>
+                {reportsHasCoding && <th className="px-2 py-3 text-center w-[8%]">Coding %</th>}
+                {reportsHasDescriptive && <th className="px-2 py-3 text-center w-[10%]">Descriptive %</th>}
+                <th className="px-2 py-3 text-center w-[8%]">Overall %</th>
+                <th className="px-2 py-3 text-center w-[10%]">Status</th>
+                <th className="px-2 py-3 text-center w-[8%]">Time</th>
+                <th className="px-2 py-3 text-center w-[8%]">Warnings</th>
+                <th className="px-2 py-3 text-center w-[15%]">Proctoring Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -896,7 +984,8 @@ export default function ReportDetailPage() {
                       <td className="px-2 py-4 text-center"><div className="h-4 w-4 bg-slate-100 rounded mx-auto" /></td>
                       <td className="px-3 py-4 text-left"><div className="h-4 bg-slate-100 rounded-md w-40" /></td>
                       <td className="px-2 py-4 text-center"><div className="h-4 bg-slate-100 rounded-md w-10 mx-auto" /></td>
-                      <td className="px-2 py-4 text-center"><div className="h-4 bg-slate-100 rounded-md w-10 mx-auto" /></td>
+                      {reportsHasCoding && <td className="px-2 py-4 text-center"><div className="h-4 bg-slate-100 rounded-md w-10 mx-auto" /></td>}
+                      {reportsHasDescriptive && <td className="px-2 py-4 text-center"><div className="h-4 bg-slate-100 rounded-md w-10 mx-auto" /></td>}
                       <td className="px-2 py-4 text-center"><div className="h-4 bg-slate-100 rounded-md w-10 mx-auto" /></td>
                       <td className="px-2 py-4 text-center"><div className="h-4 bg-slate-100 rounded-md w-16 mx-auto" /></td>
                       <td className="px-2 py-4 text-center"><div className="h-4 bg-slate-100 rounded-md w-10 mx-auto" /></td>
@@ -910,7 +999,7 @@ export default function ReportDetailPage() {
               {/* Empty state */}
               {!candidatesLoading && !candidatesError && candidates.length === 0 && (
                 <tr>
-                  <td colSpan="9" className="px-5 py-12 text-center">
+                  <td colSpan={8 + (reportsHasCoding ? 1 : 0) + (reportsHasDescriptive ? 1 : 0)} className="px-5 py-12 text-center">
                     <FiUser className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                     <p className="text-sm font-semibold text-slate-500">No candidate data yet</p>
                     <p className="text-xs text-slate-400 mt-1">Candidate results will appear here once submissions are received.</p>
@@ -918,7 +1007,6 @@ export default function ReportDetailPage() {
                 </tr>
               )}
 
-              {/* Data rows */}
               {candidates.filter((c) => {
                 const codingSection = c.sectionWisePerformance?.find(
                   (sec) => isCodingSection(sec)
@@ -935,11 +1023,30 @@ export default function ReportDetailPage() {
                   (codingSection && !attemptedCoding)
                 );
 
+                const descriptiveSection = c.sectionWisePerformance?.find(
+                  (sec) => isDescriptiveSection(sec)
+                );
+                const hasDescriptive = !!descriptiveSection;
+                const attemptedDescriptive = descriptiveSection && descriptiveSection.questions?.some(q => q.studentAnswer && q.studentAnswer.trim() !== '');
+
+                const isDescriptiveValidated = !hasDescriptive || !!(
+                  c.descriptiveValidated || 
+                  c.isDescriptiveValidated || 
+                  descriptiveSection?.validated || 
+                  descriptiveSection?.isDescriptiveValidated ||
+                  (descriptiveSection && descriptiveSection.score > 0) ||
+                  (descriptiveSection && !attemptedDescriptive)
+                );
+
                 if (validationFilter === 'pending') {
                   return hasCoding && attemptedCoding && !isCodingValidated;
                 }
+                if (validationFilter === 'pending_descriptive') {
+                  return hasDescriptive && attemptedDescriptive && !isDescriptiveValidated;
+                }
                 if (validationFilter === 'validated') {
-                  return !hasCoding || !attemptedCoding || isCodingValidated;
+                  return (!hasCoding || !attemptedCoding || isCodingValidated) && 
+                         (!hasDescriptive || !attemptedDescriptive || isDescriptiveValidated);
                 }
                 return true;
               }).map((c) => {
@@ -955,7 +1062,7 @@ export default function ReportDetailPage() {
                 const hasCoding = !!c.sectionWisePerformance?.some(sec => isCodingSection(sec));
 
                 const mcqSections = c.sectionWisePerformance?.filter(
-                  (sec) => !isCodingSection(sec)
+                  (sec) => !isCodingSection(sec) && !isDescriptiveSection(sec)
                 ) || [];
                 const mcqScore = mcqSections.reduce((sum, sec) => sum + safeNum(sec.score), 0);
                 const mcqTotal = mcqSections.reduce((sum, sec) => sum + safeNum(sec.totalMarks), 0);
@@ -970,6 +1077,15 @@ export default function ReportDetailPage() {
                 const codingTotal = codingSection ? safeNum(codingSection.totalMarks) : 0;
                 const codingPct = codingSection 
                   ? (codingTotal > 0 ? ((codingScore / codingTotal) * 100).toFixed(1) + '%' : '0.0%')
+                  : '-';
+
+                const descriptiveSection = c.sectionWisePerformance?.find(
+                  (sec) => isDescriptiveSection(sec)
+                );
+                const descriptiveScore = descriptiveSection ? safeNum(descriptiveSection.score) : 0;
+                const descriptiveTotal = descriptiveSection ? safeNum(descriptiveSection.totalMarks) : 0;
+                const descriptivePct = descriptiveSection 
+                  ? (descriptiveTotal > 0 ? ((descriptiveScore / descriptiveTotal) * 100).toFixed(1) + '%' : '0.0%')
                   : '-';
 
                 return (
@@ -1000,9 +1116,16 @@ export default function ReportDetailPage() {
                       <td className="px-2 py-4 text-center">
                         <span className="font-semibold text-slate-700 text-xs">{mcqPct}</span>
                       </td>
-                      <td className="px-2 py-4 text-center">
-                        <span className="font-semibold text-slate-700 text-xs">{codingPct}</span>
-                      </td>
+                      {reportsHasCoding && (
+                        <td className="px-2 py-4 text-center">
+                          <span className="font-semibold text-slate-700 text-xs">{codingPct}</span>
+                        </td>
+                      )}
+                      {reportsHasDescriptive && (
+                        <td className="px-2 py-4 text-center">
+                          <span className="font-semibold text-slate-700 text-xs">{descriptivePct}</span>
+                        </td>
+                      )}
                       <td className="px-2 py-4 text-center">
                         <span className="font-bold text-slate-800 text-xs">{safeNum(c.percentage)}%</span>
                       </td>
@@ -1045,7 +1168,9 @@ export default function ReportDetailPage() {
                         )}
                       </td>
                     </tr>
-                    {isExpanded && <CandidateDetail c={c} testId={testId} />}
+                    <AnimatePresence initial={false}>
+                      {isExpanded && <CandidateDetail c={c} testId={testId} />}
+                    </AnimatePresence>
                   </React.Fragment>
                 );
               })}

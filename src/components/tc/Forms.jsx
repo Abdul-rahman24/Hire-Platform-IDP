@@ -165,7 +165,7 @@ export function SectionDrawer({
     }
 
     const selectedSet = questionSets.find(s => (s.questionSetId || s.id || s.setId) === form.questionSetId);
-    const resolvedType = selectedSet?.setType || form.questionType || 'MCQ';
+    const resolvedType = form.questionType || selectedSet?.setType || 'MCQ';
 
     onSave({
       ...form,
@@ -183,6 +183,7 @@ export function SectionDrawer({
   const selectOptions = questionSets.map((qs) => ({
     value: qs.questionSetId || qs.id || qs.setId,
     label: qs.questionSetName || qs.title || qs.name || qs.questionSetId || qs.id,
+    setType: (qs.setType || 'MCQ').toUpperCase()
   }));
 
   // Unique Animated Skeleton Loader while data is loading
@@ -259,6 +260,8 @@ export function SectionDrawer({
             onChange={handleQuestionSetChange}
             placeholder="Select Question Set"
             options={selectOptions}
+            searchable={true}
+            showTypeFilters={true}
           />
         </Field>
 

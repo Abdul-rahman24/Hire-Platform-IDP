@@ -9,7 +9,6 @@ function SkeletonRow() {
   return (
     <tr className="animate-pulse">
       <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-40" /></td>
-      <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-24" /></td>
       <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-16" /></td>
       <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-16" /></td>
       <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-14" /></td>
@@ -152,11 +151,10 @@ export default function ReportsListPage() {
         </div>
 
         <div className="overflow-x-auto overflow-y-hidden">
-          <table className="w-full min-w-[700px] lg:min-w-full">
+          <table className="w-full text-left">
             <thead>
               <tr className="border-b border-slate-100 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/20">
-                <th className="px-5 py-3 w-[35%]">Test Name</th>
-                <th className="px-5 py-3">Test ID</th>
+                <th className="px-5 py-3 w-[45%]">Test Name</th>
                 <th className="px-5 py-3">Completed</th>
                 <th className="px-5 py-3">Avg Score</th>
                 <th className="px-5 py-3">Pass Rate</th>
@@ -176,7 +174,7 @@ export default function ReportsListPage() {
               {/* Empty state */}
               {!loading && !error && list.length === 0 && (
                 <tr>
-                  <td colSpan="5" className="px-5 py-16 text-center">
+                  <td colSpan="4" className="px-5 py-16 text-center">
                     <FiInbox className="w-10 h-10 text-slate-300 mx-auto mb-3" />
                     <p className="text-sm font-semibold text-slate-500">No test reports yet</p>
                     <p className="text-xs text-slate-400 mt-1">Reports will appear here once tests have been conducted.</p>
@@ -202,9 +200,6 @@ export default function ReportsListPage() {
                         </h4>
                       </div>
                     </div>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="text-[10px] text-slate-400 font-mono">{report.testId}</span>
                   </td>
                   <td className="px-5 py-4">
                     <span className="font-bold text-slate-800 text-xs">{safeNum(report.completedCandidates)}</span>

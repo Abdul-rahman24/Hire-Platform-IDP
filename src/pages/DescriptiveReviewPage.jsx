@@ -6,6 +6,13 @@ import { useToast } from '../components/tc/Toast';
 
 const safeNum = (v) => (typeof v === 'number' && isFinite(v) ? v : 0);
 
+const isDescriptiveSection = (sec) => {
+  if (!sec) return false;
+  const hasDescriptiveQuestion = sec.questions?.some(q => (q.questionType || q.type || '').toUpperCase() === 'DESCRIPTIVE');
+  const hasDescriptiveName = sec.sectionName?.toUpperCase().includes('DESCRIPTIVE');
+  return !!(hasDescriptiveQuestion || hasDescriptiveName);
+};
+
 const isCodingSection = (sec) => {
   if (!sec) return false;
   const hasCodingQuestion = sec.questions?.some(q => (q.questionType || q.type || '').toUpperCase() === 'CODING');
@@ -13,7 +20,7 @@ const isCodingSection = (sec) => {
   return !!(hasCodingQuestion || hasCodingName);
 };
 
-export default function CodeReviewPage() {
+export default function DescriptiveReviewPage() {
   const { testId, mailId } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
@@ -31,7 +38,7 @@ export default function CodeReviewPage() {
   const [testReport, setTestReport] = useState(null);
   const [error, setError] = useState(null);
 
-  const [codingScores, setCodingScores] = useState({});
+  const [descriptiveScores, setDescriptiveScores] = useState({});
   const [validationErrors, setValidationErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -46,20 +53,20 @@ export default function CodeReviewPage() {
         setCandidate(candData);
         setTestReport(reportData);
 
-        // Prepopulate scores
-        const codingSec = candData?.sectionWisePerformance?.find(
-          (sec) => isCodingSection(sec)
+        // Prepopulate scores for descriptive section
+        const descriptiveSec = candData?.sectionWisePerformance?.find(
+          (sec) => isDescriptiveSection(sec)
         );
         const initialScores = {};
-        if (codingSec?.questions) {
-          codingSec.questions.forEach((q) => {
+        if (descriptiveSec?.questions) {
+          descriptiveSec.questions.forEach((q) => {
             const hasAnswered = q.studentAnswer && q.studentAnswer.trim().length > 0;
             initialScores[q.questionId] = q.score !== undefined 
               ? q.score 
               : (hasAnswered ? '' : 0);
           });
         }
-        setCodingScores(initialScores);
+        setDescriptiveScores(initialScores);
       } catch (err) {
         console.error('Failed to load candidate review data:', err);
         setError(err.message || 'Failed to load details.');
@@ -70,16 +77,15 @@ export default function CodeReviewPage() {
     loadData();
   }, [testId, mailId]);
 
-  const codingSection = candidate?.sectionWisePerformance?.find(
-    (sec) => isCodingSection(sec)
+  const descriptiveSection = candidate?.sectionWisePerformance?.find(
+    (sec) => isDescriptiveSection(sec)
   );
 
-  const codingTotalMarks = codingSection ? safeNum(codingSection.totalMarks) : 0;
-  const numCodingQuestions = codingSection?.questions?.length || 1;
-  const maxQuestionMark = codingTotalMarks / numCodingQuestions;
+  const descriptiveTotalMarks = descriptiveSection ? safeNum(descriptiveSection.totalMarks) : 0;
+  const numDescriptiveQuestions = descriptiveSection?.questions?.length || 1;
 
   const handleScoreChange = (qId, val) => {
-    setCodingScores((prev) => ({ ...prev, [qId]: val }));
+    setDescriptiveScores((prev) => ({ ...prev, [qId]: val }));
     if (validationErrors[qId]) {
       setValidationErrors((prev) => {
         const copy = { ...prev };
@@ -90,13 +96,13 @@ export default function CodeReviewPage() {
   };
 
   const handleSubmit = async () => {
-    if (!codingSection?.questions) return;
+    if (!descriptiveSection?.questions) return;
     const errors = {};
     const scoresPayload = [];
-    let totalScore = 0;
 
-    codingSection.questions.forEach((q) => {
-      const valStr = String(codingScores[q.questionId] !== undefined ? codingScores[q.questionId] : '').trim();
+    descriptiveSection.questions.forEach((q) => {
+      const maxMark = q.marks !== undefined ? safeNum(q.marks) : (descriptiveTotalMarks / numDescriptiveQuestions);
+      const valStr = String(descriptiveScores[q.questionId] !== undefined ? descriptiveScores[q.questionId] : '').trim();
       const hasAnswered = q.studentAnswer && q.studentAnswer.trim().length > 0;
 
       if (valStr === '') {
@@ -110,14 +116,13 @@ export default function CodeReviewPage() {
         }
       } else {
         const valNum = Number(valStr);
-        if (isNaN(valNum) || valNum < 0 || valNum > maxQuestionMark || !Number.isInteger(valNum)) {
-          errors[q.questionId] = `Mark range is not correct (must be an integer from 0 to ${maxQuestionMark})`;
+        if (isNaN(valNum) || valNum < 0 || valNum > maxMark || !Number.isInteger(valNum)) {
+          errors[q.questionId] = `Mark range is not correct (must be an integer from 0 to ${maxMark})`;
         } else {
           scoresPayload.push({
             questionId: q.questionId,
             score: valNum
           });
-          totalScore += valNum;
         }
       }
     });
@@ -129,8 +134,8 @@ export default function CodeReviewPage() {
 
     setIsSubmitting(true);
     try {
-      for (const q of codingSection.questions) {
-        const valStr = String(codingScores[q.questionId] !== undefined ? codingScores[q.questionId] : '').trim();
+      for (const q of descriptiveSection.questions) {
+        const valStr = String(descriptiveScores[q.questionId] !== undefined ? descriptiveScores[q.questionId] : '').trim();
         const hasAnswered = q.studentAnswer && q.studentAnswer.trim().length > 0;
         const scoreVal = valStr === '' && !hasAnswered ? 0 : Number(valStr);
 
@@ -174,7 +179,7 @@ export default function CodeReviewPage() {
           }
         }
 
-        // Attempt 3: PATCH with raw email path and no headers (bypasses header-specific CORS blocks)
+        // Attempt 3: PATCH with raw email path and no headers (bypasses CORS blocks)
         if (!response || !response.ok) {
           try {
             response = await fetch(urlRaw, {
@@ -196,9 +201,19 @@ export default function CodeReviewPage() {
         }
       }
 
+      toast && toast({
+        type: 'success',
+        title: 'Scores Saved',
+        message: 'Descriptive grades updated successfully.'
+      });
       navigate(`/reports/${testId}`);
     } catch (err) {
-      console.error('Failed to submit coding scores:', err);
+      console.error('Failed to submit descriptive scores:', err);
+      toast && toast({
+        type: 'error',
+        title: 'Submission Failed',
+        message: err.message || 'Failed to submit scores.'
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -233,7 +248,7 @@ export default function CodeReviewPage() {
     );
   }
 
-  const hasCoding = !!codingSection;
+  const hasDescriptive = !!descriptiveSection;
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-6">
@@ -252,7 +267,7 @@ export default function CodeReviewPage() {
       <div className="bg-white rounded-xl border border-slate-200/70 shadow-sm p-5">
         <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-100">
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#0B4A99] flex items-center justify-center font-bold text-xs">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center font-bold text-xs">
               {(candidate?.candidateName || '??').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
             </div>
             <div>
@@ -261,7 +276,7 @@ export default function CodeReviewPage() {
             </div>
           </div>
           <div className="text-right">
-            <p className="text-xs font-semibold text-slate-450">Test Name</p>
+            <p className="text-xs font-semibold text-slate-455">Test Name</p>
             <p className="text-xs font-bold text-slate-800">{testReport?.testName || 'Unknown Test'}</p>
           </div>
         </div>
@@ -271,15 +286,15 @@ export default function CodeReviewPage() {
           <div className="bg-slate-50/50 rounded-lg p-3 text-center border border-slate-100">
             <p className="text-xs text-slate-400 font-medium">MCQ Marks</p>
             <p className="text-base font-bold text-slate-800 mt-1">
-              {safeNum(candidate?.sectionWisePerformance?.find(s => !isCodingSection(s))?.score)}
-              <span className="text-xs text-slate-400 font-medium">/{safeNum(candidate?.sectionWisePerformance?.find(s => !isCodingSection(s))?.totalMarks)}</span>
+              {safeNum(candidate?.sectionWisePerformance?.find(s => !isCodingSection(s) && !isDescriptiveSection(s))?.score)}
+              <span className="text-xs text-slate-400 font-medium">/{safeNum(candidate?.sectionWisePerformance?.find(s => !isCodingSection(s) && !isDescriptiveSection(s))?.totalMarks)}</span>
             </p>
           </div>
           <div className="bg-slate-50/50 rounded-lg p-3 text-center border border-slate-100">
-            <p className="text-xs text-slate-400 font-medium">Coding Marks</p>
+            <p className="text-xs text-slate-400 font-medium">Descriptive Marks</p>
             <p className="text-base font-bold text-slate-800 mt-1">
-              {safeNum(codingSection?.score)}
-              <span className="text-xs text-slate-400 font-medium">/{codingTotalMarks}</span>
+              {safeNum(descriptiveSection?.score)}
+              <span className="text-xs text-slate-400 font-medium">/{descriptiveTotalMarks}</span>
             </p>
           </div>
           <div className="bg-slate-50/50 rounded-lg p-3 text-center border border-slate-100">
@@ -295,48 +310,49 @@ export default function CodeReviewPage() {
         </div>
       </div>
 
-      {/* Code Review panel */}
-      {hasCoding ? (
+      {/* Descriptive Review panel */}
+      {hasDescriptive ? (
         <div className="bg-white rounded-xl border border-slate-200/70 shadow-sm p-6 space-y-6">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100">
             <h4 className="text-xs font-bold text-slate-800 flex items-center">
-              <span className="w-1.5 h-3 bg-[#0B4A99] rounded-sm mr-2" />
-              Grading Coding Submissions ({codingSection.questions?.length || 0} questions)
+              <span className="w-1.5 h-3 bg-amber-500 rounded-sm mr-2" />
+              Grading Descriptive Submissions ({descriptiveSection.questions?.length || 0} questions)
             </h4>
             <span className="bg-slate-100 text-slate-500 text-[10px] font-semibold px-2 py-0.5 rounded-full border border-slate-200">
-              Allocated Marks: {codingTotalMarks}
+              Allocated Marks: {descriptiveTotalMarks}
             </span>
           </div>
 
-          <div className="space-y-6">
-            {codingSection.questions.map((q, idx) => {
+          <div className="space-y-6 divide-y divide-slate-100">
+            {descriptiveSection.questions.map((q, idx) => {
               const studentAns = q.studentAnswer || '';
               const hasAnswered = studentAns.trim().length > 0;
+              const maxMark = q.marks !== undefined ? safeNum(q.marks) : (descriptiveTotalMarks / numDescriptiveQuestions);
 
               return (
-                <div key={q.questionId || idx} className="border border-slate-200 rounded-xl p-4 bg-slate-50/20 space-y-3">
+                <div key={q.questionId || idx} className="pt-6 first:pt-0 space-y-4">
                   <div className="flex justify-between items-start">
                     <p className="text-xs font-bold text-slate-800 flex-1 leading-normal">
                       Q{idx + 1}: {q.question}
                     </p>
                     <span className="text-[10px] text-slate-400 font-bold ml-4 border border-slate-200 px-2 py-0.5 rounded bg-white">
-                      Max Mark: {maxQuestionMark}
+                      Max Mark: {maxMark}
                     </span>
                   </div>
 
-                  {/* Code Block Container */}
+                  {/* Descriptive Answer Container */}
                   <div className="relative group">
                     {hasAnswered ? (
                       <>
                         <button
                           onClick={() => handleCopy(q.questionId, studentAns)}
-                          className="absolute right-3 top-3 px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 flex items-center space-x-1.5 transition-colors cursor-pointer"
-                          title="Copy code to clipboard"
+                          className="absolute right-3 top-3 px-2 py-1 bg-white hover:bg-slate-50 text-slate-650 rounded border border-slate-250 flex items-center space-x-1.5 transition-colors cursor-pointer shadow-xs"
+                          title="Copy answer to clipboard"
                         >
                           {copiedQId === q.questionId ? (
                             <>
-                              <FiCheck className="w-3.5 h-3.5 text-emerald-400" />
-                              <span className="text-[10px] text-emerald-400 font-bold">Copied!</span>
+                              <FiCheck className="w-3.5 h-3.5 text-emerald-600" />
+                              <span className="text-[10px] text-emerald-600 font-bold">Copied!</span>
                             </>
                           ) : (
                             <>
@@ -345,18 +361,18 @@ export default function CodeReviewPage() {
                             </>
                           )}
                         </button>
-                        <pre className="bg-[#1E293B] text-slate-100 text-xs p-4 pr-16 rounded-xl overflow-x-auto font-mono max-h-[350px] whitespace-pre-wrap leading-relaxed shadow-inner">
+                        <div className="bg-slate-50 p-4 pr-16 rounded-xl border border-slate-200/60 text-xs text-slate-700 leading-relaxed font-sans max-h-[350px] overflow-y-auto whitespace-pre-wrap">
                           {studentAns}
-                        </pre>
+                        </div>
                       </>
                     ) : (
                       <div className="bg-slate-50 text-slate-400 text-xs py-8 rounded-xl text-center font-medium italic border border-dashed border-slate-300">
-                        Candidate did not submit code for this question.
+                        Candidate did not submit an answer for this question.
                       </div>
                     )}
                   </div>
 
-                  {/* Score Field */}
+                  {/* Score Input block (only displayed if answered) */}
                   {hasAnswered ? (
                     <div className="flex items-center space-x-4 pt-2">
                       <label className="text-xs font-bold text-slate-700">
@@ -366,10 +382,10 @@ export default function CodeReviewPage() {
                         <input
                           type="number"
                           min="0"
-                          max={maxQuestionMark}
+                          max={maxMark}
                           step="1"
-                          placeholder={`0 - ${maxQuestionMark}`}
-                          value={codingScores[q.questionId] !== undefined ? codingScores[q.questionId] : ''}
+                          placeholder={`0 - ${maxMark}`}
+                          value={descriptiveScores[q.questionId] !== undefined ? descriptiveScores[q.questionId] : ''}
                           onChange={(e) => handleScoreChange(q.questionId, e.target.value)}
                           disabled={isSubmitting}
                           className={`w-32 px-3 py-1.5 bg-white border ${
@@ -394,26 +410,19 @@ export default function CodeReviewPage() {
             })}
           </div>
 
-          <div className="pt-4 border-t border-slate-100 flex justify-end space-x-3">
-            <button
-              onClick={() => navigate(`/reports/${testId}`)}
-              disabled={isSubmitting}
-              className="px-4 py-2 border border-slate-200 hover:border-slate-350 text-slate-600 hover:text-slate-800 rounded-lg text-xs font-bold transition-all cursor-pointer"
-            >
-              Cancel
-            </button>
+          <div className="flex justify-end pt-4 border-t border-slate-100">
             <button
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="px-4 py-2 bg-[#0B4A99] hover:bg-[#083A78] disabled:bg-slate-300 text-white rounded-lg text-xs font-bold transition-all shadow-md cursor-pointer"
+              className="px-6 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-100 disabled:text-slate-400 text-white font-bold text-xs rounded-xl transition-all shadow-md shadow-amber-500/10 cursor-pointer"
             >
-              {isSubmitting ? 'Saving Scores...' : 'Save & Validate Scores'}
+              {isSubmitting ? 'Saving Descriptive Grades...' : 'Submit Descriptive Grades'}
             </button>
           </div>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-slate-200/70 shadow-sm p-6 text-center text-slate-400 text-xs font-medium">
-          This candidate does not have any coding section.
+        <div className="bg-slate-50 rounded-xl p-8 border border-slate-200 text-center text-xs text-slate-400">
+          No Descriptive section found for this candidate.
         </div>
       )}
     </div>

@@ -16,9 +16,8 @@ function LocalSkeletonRow() {
       <td className="px-5 py-4">
         <div className="flex items-center">
           <div className="w-8 h-8 rounded-xl bg-slate-100 mr-3 flex-shrink-0" />
-          <div className="space-y-1.5 flex-1">
+          <div className="flex-1">
             <div className="h-3.5 bg-slate-100 rounded w-36" />
-            <div className="h-2.5 bg-slate-100 rounded w-24" />
           </div>
         </div>
       </td>
@@ -249,9 +248,9 @@ export default function TestListPage() {
 
       {/* Table Container */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-        <div className="overflow-x-auto overflow-y-auto max-h-[550px] scrollbar-thin">
-          <table className="w-full text-left table-fixed min-w-[850px]">
-            <thead className="sticky top-0 bg-white z-10 shadow-xs">
+        <div className="overflow-x-auto overflow-y-hidden scrollbar-thin">
+          <table className="w-full text-left table-fixed">
+            <thead>
               <tr className="border-b border-slate-100 bg-[#f8fafc]/95 backdrop-blur-xs">
                 <th className="px-5 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[30%]">Test Name</th>
                 <th className="px-3 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[12%]">Sections</th>
@@ -259,7 +258,7 @@ export default function TestListPage() {
                 <th className="px-3 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[12%]">Total Marks</th>
                 <th className="px-3 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[12%]">Total Questions</th>
                 <th className="px-3 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[12%]">Status</th>
-                <th className="px-4 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-right w-[100px]">Actions</th>
+                <th className="px-4 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-right w-[10%]">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -301,7 +300,6 @@ export default function TestListPage() {
                         </div>
                         <div className="min-w-0 pr-2">
                           <p className="text-sm font-semibold text-slate-800 group-hover:text-[#0B4A99] transition-colors truncate">{test.title}</p>
-                          <p className="text-[10px] text-slate-400 font-mono mt-0.5">ID: {testId}</p>
                         </div>
                       </div>
                     </td>

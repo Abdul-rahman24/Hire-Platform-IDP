@@ -110,6 +110,7 @@ export default function QuestionBankApp() {
         .filter(q => q.itemType !== 'QUESTION_SET_HEADER' && (q.questionId || q.id || q.question))
         .map((q) => {
           const isCoding = (q.questionType || '').toUpperCase() === 'CODING' || q.language !== undefined;
+          const isDescriptive = (q.questionType || '').toUpperCase() === 'DESCRIPTIVE' || q.wordLimit !== undefined;
 
           if (isCoding) {
             return {
@@ -120,6 +121,19 @@ export default function QuestionBankApp() {
               text: q.question || q.questionText || q.text || '',
               questionType: 'CODING',
               language: q.language || 'python',
+              marks: q.marks !== undefined ? Number(q.marks) : 10,
+            };
+          }
+
+          if (isDescriptive) {
+            return {
+              questionSetId: q.questionSetId || setId,
+              questionId: q.questionId || q.id || `Q-${Date.now()}`,
+              id: q.questionId || q.id,
+              question: q.question || q.questionText || q.text || '',
+              text: q.question || q.questionText || q.text || '',
+              questionType: 'DESCRIPTIVE',
+              wordLimit: q.wordLimit !== undefined ? Number(q.wordLimit) : 500,
               marks: q.marks !== undefined ? Number(q.marks) : 10,
             };
           }

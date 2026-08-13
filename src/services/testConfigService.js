@@ -17,10 +17,10 @@ let memorySectionsStore = [];
 
 const buildSectionPayload = (sec, idx) => {
   const qSetId = sec.questionSetId || sec.question_set_id || 'SET001';
-  const isCodingId = String(qSetId).toUpperCase().includes('CODING') || String(qSetId).toUpperCase().includes('CODE') || qSetId === 'SET003' || qSetId === 'SET010';
-  const typeVal = String(sec.questionType || sec.question_type || '').toUpperCase();
-  const isCodingType = typeVal.includes('CODING') || typeVal.includes('CODE');
-  const resolvedType = (isCodingId || isCodingType) ? 'CODING' : 'MCQ';
+  let resolvedType = String(sec.questionType || sec.question_type || 'MCQ').toUpperCase();
+  if (!['MCQ', 'CODING', 'DESCRIPTIVE'].includes(resolvedType)) {
+    resolvedType = 'MCQ';
+  }
 
   const sName = sec.sectionName || sec.section_name || sec.title || `Section ${(idx !== undefined ? idx + 1 : 1)}`;
   const duration = Number(sec.durationMinutes !== undefined ? sec.durationMinutes : (sec.duration_minutes || 30));
@@ -50,10 +50,10 @@ const buildSectionPayload = (sec, idx) => {
 const normalizeSection = (sec) => {
   if (!sec) return sec;
   const qSetId = sec.questionSetId || sec.question_set_id || '';
-  const isCodingId = String(qSetId).toUpperCase().includes('CODING') || String(qSetId).toUpperCase().includes('CODE') || qSetId === 'SET003' || qSetId === 'SET010';
-  const typeVal = String(sec.questionType || sec.question_type || '').toUpperCase();
-  const isCodingType = typeVal.includes('CODING') || typeVal.includes('CODE');
-  const resolvedType = (isCodingId || isCodingType) ? 'CODING' : 'MCQ';
+  let resolvedType = String(sec.questionType || sec.question_type || 'MCQ').toUpperCase();
+  if (!['MCQ', 'CODING', 'DESCRIPTIVE'].includes(resolvedType)) {
+    resolvedType = 'MCQ';
+  }
 
   return {
     ...sec,
@@ -244,7 +244,25 @@ export const testConfigService = {
       const response = await testApi.get(`/tests/${encodeURIComponent(testId)}/complete`);
       const data = response.data || response;
       if (data && Array.isArray(data.sections)) {
-        data.sections = data.sections.map(sec => normalizeSection(sec));
+        const enrichedSections = await Promise.all(
+          data.sections.map(async (sec) => {
+            const normalized = normalizeSection(sec);
+            try {
+              const details = await this.getQuestionSetDetails(normalized.questionSetId);
+              return {
+                ...normalized,
+                questionType: details.setType || normalized.questionType,
+                questions: details.questions || [],
+              };
+            } catch {
+              return {
+                ...normalized,
+                questions: normalized.questions || [],
+              };
+            }
+          })
+        );
+        data.sections = enrichedSections;
         return data;
       }
       throw new Error('Sections missing in response');
@@ -259,6 +277,7 @@ export const testConfigService = {
             const details = await this.getQuestionSetDetails(sec.questionSetId);
             return {
               ...sec,
+              questionType: details.setType || sec.questionType,
               questions: details.questions || [],
             };
           } catch {
@@ -300,7 +319,14 @@ export const testConfigService = {
    * @param {Object} sectionPayload
    */
   async createSection(testId, sectionPayload) {
-    const finalPayload = buildSectionPayload(sectionPayload);
+    let resolvedType = sectionPayload.questionType;
+    try {
+      const details = await this.getQuestionSetDetails(sectionPayload.questionSetId || sectionPayload.question_set_id);
+      resolvedType = details.setType || resolvedType || 'MCQ';
+    } catch (err) {
+      console.warn('Failed to resolve section type from database:', err);
+    }
+    const finalPayload = buildSectionPayload({ ...sectionPayload, questionType: resolvedType });
 
     try {
       const response = await testApi.post(`/tests/${encodeURIComponent(testId)}/sections`, finalPayload);
@@ -330,7 +356,14 @@ export const testConfigService = {
    * @param {Object} sectionPayload
    */
   async updateSection(sectionId, sectionPayload) {
-    const finalPayload = buildSectionPayload(sectionPayload);
+    let resolvedType = sectionPayload.questionType;
+    try {
+      const details = await this.getQuestionSetDetails(sectionPayload.questionSetId || sectionPayload.question_set_id);
+      resolvedType = details.setType || resolvedType || 'MCQ';
+    } catch (err) {
+      console.warn('Failed to resolve section type from database:', err);
+    }
+    const finalPayload = buildSectionPayload({ ...sectionPayload, questionType: resolvedType });
 
     try {
       const response = await testApi.put(`/sections/${encodeURIComponent(sectionId)}`, finalPayload);
@@ -362,6 +395,22 @@ export const testConfigService = {
    */
   async saveTestWithSections(testId, testData, sectionsList) {
     let savedTest;
+
+    // Resolve the original type for each section directly from the Question Bank database before saving
+    const resolvedSectionsList = await Promise.all(
+      sectionsList.map(async (sec) => {
+        try {
+          const details = await this.getQuestionSetDetails(sec.questionSetId || sec.question_set_id);
+          return {
+            ...sec,
+            questionType: details.setType || sec.questionType || 'MCQ',
+          };
+        } catch {
+          return sec;
+        }
+      })
+    );
+
     if (testId) {
       // Update test metadata
       savedTest = await this.updateTest(testId, testData);
@@ -371,23 +420,22 @@ export const testConfigService = {
       
       // Reconcile sections:
       // 1. Delete removed sections
-      const sectionsToKeepIds = sectionsList.map(s => s.sectionId).filter(Boolean);
+      const sectionsToKeepIds = resolvedSectionsList.map(s => s.sectionId).filter(Boolean);
       const sectionsToDelete = existingSections.filter(s => !sectionsToKeepIds.includes(s.sectionId));
       await Promise.all(sectionsToDelete.map(s => this.deleteSection(s.sectionId)));
       
       // 2. Update existing & create new sections
       await Promise.all(
-        sectionsList.map(async (sec, idx) => {
-          const payload = buildSectionPayload(sec, idx);
+        resolvedSectionsList.map(async (sec, idx) => {
           if (sec.sectionId && !String(sec.sectionId).startsWith('temp-') && !String(sec.sectionId).startsWith('sec-')) {
             // Keep original UUID if it exists
-            await this.updateSection(sec.sectionId, payload);
+            await this.updateSection(sec.sectionId, sec);
           } else if (sec.sectionId && existingSections.some(e => e.sectionId === sec.sectionId)) {
             // Update matched section
-            await this.updateSection(sec.sectionId, payload);
+            await this.updateSection(sec.sectionId, sec);
           } else {
             // Create new section
-            await this.createSection(testId, payload);
+            await this.createSection(testId, sec);
           }
         })
       );
@@ -398,9 +446,8 @@ export const testConfigService = {
       
       // Create all sections
       await Promise.all(
-        sectionsList.map(async (sec, idx) => {
-          const payload = buildSectionPayload(sec, idx);
-          await this.createSection(createdTestId, payload);
+        resolvedSectionsList.map(async (sec, idx) => {
+          await this.createSection(createdTestId, sec);
         })
       );
     }
@@ -418,10 +465,13 @@ export const testConfigService = {
         return rawSets.map(s => {
           const qId = s.questionSetId || s.id;
           const title = s.title || s.name || `Assessment Set: ${qId}`;
+          const isCodingId = String(qId).toUpperCase().includes('CODING') || String(qId).toUpperCase().includes('CODE') || qId === 'SET003' || qId === 'SET010';
+          const isDescriptiveId = String(qId).toUpperCase().includes('DESCRIPTIVE') || String(qId).toUpperCase().includes('DESCRIP') || qId === 'SET002';
+          const fallbackType = isCodingId ? 'CODING' : isDescriptiveId ? 'DESCRIPTIVE' : 'MCQ';
           return {
             questionSetId: qId,
             questionSetName: `${qId} - ${title}`,
-            setType: s.setType || s.setDetails?.setType || s.questionType || s.type || 'MCQ',
+            setType: s.setType || s.setDetails?.setType || s.questionType || s.type || fallbackType,
           };
         });
       }
@@ -437,15 +487,13 @@ export const testConfigService = {
    */
   async getQuestionSetDetails(id) {
     if (!id) return { questionSetId: 'SET001', questions: [] };
-    const isCodingId = String(id).toUpperCase().includes('CODING') || id === 'SET003' || id === 'SET010';
-    const defaultType = isCodingId ? 'CODING' : 'MCQ';
 
     try {
       const response = await questionBankService.getQuestionSet(id);
       if (!response || response.notFound) {
         return { 
           questionSetId: id, 
-          setType: defaultType, 
+          setType: 'MCQ', 
           questions: [] 
         };
       }
@@ -456,7 +504,9 @@ export const testConfigService = {
       const normalizedQuestions = rawQuestions
         .filter(q => q.itemType !== 'QUESTION_SET_HEADER' && (q.questionId || q.id || q.question))
         .map((q) => {
-          const isCoding = (q.questionType || '').toUpperCase() === 'CODING' || q.language !== undefined;
+          const qType = (q.questionType || '').toUpperCase();
+          const isCoding = qType === 'CODING' || q.language !== undefined;
+          const isDescriptive = qType === 'DESCRIPTIVE' || q.wordLimit !== undefined;
 
           if (isCoding) {
             return {
@@ -467,6 +517,19 @@ export const testConfigService = {
               text: q.question || q.questionText || q.text || '',
               type: 'CODING',
               language: q.language || 'python',
+              marks: q.marks !== undefined ? Number(q.marks) : 10,
+            };
+          }
+
+          if (isDescriptive) {
+            return {
+              questionSetId: q.questionSetId || id,
+              questionId: q.questionId || q.id || `Q-${Date.now()}`,
+              id: q.questionId || q.id,
+              question: q.question || q.questionText || q.text || '',
+              text: q.question || q.questionText || q.text || '',
+              type: 'DESCRIPTIVE',
+              wordLimit: q.wordLimit !== undefined ? Number(q.wordLimit) : 500,
               marks: q.marks !== undefined ? Number(q.marks) : 10,
             };
           }
@@ -500,16 +563,27 @@ export const testConfigService = {
           };
         });
 
+      let detectedType = 'MCQ';
+      if (normalizedQuestions.length > 0) {
+        if (normalizedQuestions.some(q => q.type === 'CODING')) {
+          detectedType = 'CODING';
+        } else if (normalizedQuestions.some(q => q.type === 'DESCRIPTIVE')) {
+          detectedType = 'DESCRIPTIVE';
+        }
+      }
+
+      const dbSetType = dataObj.setType || dataObj.setDetails?.setType || dataObj.questionType || dataObj.type || detectedType;
+
       return {
         questionSetId: id,
         questionSetName: dataObj.questionSetName || dataObj.name || id,
-        setType: dataObj.setType || dataObj.setDetails?.setType || dataObj.questionType || dataObj.type || (normalizedQuestions.some(q => q.type === 'CODING') ? 'CODING' : defaultType),
+        setType: dbSetType,
         questions: normalizedQuestions,
       };
     } catch (err) {
       return { 
         questionSetId: id, 
-        setType: defaultType, 
+        setType: 'MCQ', 
         questions: [] 
       };
     }
