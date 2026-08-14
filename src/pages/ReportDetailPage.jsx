@@ -604,7 +604,6 @@ export default function ReportDetailPage() {
               {report.testName || 'Unnamed Test'}
             </h2>
             <div className="flex items-center space-x-3 mt-0.5">
-              <p className="text-slate-400 text-[10px] font-mono truncate">{testId}</p>
               {totalMarks != null && (
                 <span className="text-[10px] text-slate-400 font-medium">
                   Total Marks: <span className="font-semibold text-slate-600">{totalMarks}</span>
@@ -621,9 +620,10 @@ export default function ReportDetailPage() {
         <div className="flex items-center space-x-2.5">
           <button
             onClick={() => { refresh(); refreshCandidates(); }}
-            className="bg-[#0B4A99] text-white px-4 py-2 rounded-lg font-semibold text-xs hover:bg-[#083A78] transition-all flex items-center shadow-sm flex-shrink-0 cursor-pointer"
+            disabled={loading || candidatesLoading}
+            className="bg-[#0B4A99] text-white px-4 py-2 rounded-lg font-semibold text-xs hover:bg-[#083A78] transition-all flex items-center shadow-sm flex-shrink-0 cursor-pointer disabled:opacity-50"
           >
-            <FiRefreshCw className="w-3.5 h-3.5 mr-2" />
+            <FiRefreshCw className={`w-3.5 h-3.5 mr-2 ${((loading || candidatesLoading)) ? 'animate-spin' : ''}`} />
             Refresh
           </button>
         </div>

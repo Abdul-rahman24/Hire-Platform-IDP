@@ -32,15 +32,17 @@ export default function Sidebar({ onNavItemClick }) {
           <div className="flex items-center space-x-2">
             <img
               src="/idp-logo.png"
-              alt="IDP Assess360 Logo"
-              className="h-[60px] w-[60px] object-contain flex-shrink-0"
+              alt="IDP Hire Logo"
+              className="h-[70px] w-[70px] object-contain flex-shrink-0"
             />
             <div className="min-w-0">
-              <span className="text-sm font-extrabold text-[#0B4A99] tracking-tight leading-tight block truncate">
-                IDP Assess360
-              </span>
-              <span className="text-[9px] font-bold text-slate-400 block tracking-wider uppercase mt-0.5 truncate">
-                Assessment Portal
+              <div className="flex items-center">
+                <span className="text-[17px] font-bold text-slate-900 tracking-tight">IDP</span>
+                <span className="text-[17px] font-bold text-[#0B4A99] tracking-tight ml-1.5">Hire</span>
+                <span className="bg-[#0B4A99] text-white text-[11px] font-black px-2.5 py-1 rounded-[6px] ml-2 leading-none">360</span>
+              </div>
+              <span className="text-[7.5px] font-medium text-slate-500 block tracking-[0.06em] uppercase mt-1.5 leading-none">
+                ENTERPRISE ASSESSMENT PORTAL
               </span>
             </div>
           </div>

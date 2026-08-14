@@ -22,7 +22,7 @@ async function unwrap(res) {
  * Fetch all test reports (aggregate stats per test).
  */
 export async function fetchAllReports() {
-  const res = await fetch(`${API_BASE}/reports/tests`);
+  const res = await fetch(`${API_BASE}/reports/tests?_=${Date.now()}`, { cache: 'no-store' });
   return unwrap(res);
 }
 
@@ -31,7 +31,7 @@ export async function fetchAllReports() {
  * Fetch a single test's aggregate report.
  */
 export async function fetchTestReport(testId) {
-  const res = await fetch(`${API_BASE}/reports/tests/${encodeURIComponent(testId)}`);
+  const res = await fetch(`${API_BASE}/reports/tests/${encodeURIComponent(testId)}?_=${Date.now()}`, { cache: 'no-store' });
   return unwrap(res);
 }
 
@@ -40,7 +40,7 @@ export async function fetchTestReport(testId) {
  * Fetch ALL candidate reports for a given test.
  */
 export async function fetchTestCandidates(testId) {
-  const res = await fetch(`${API_BASE}/reports/tests/${encodeURIComponent(testId)}/candidates`);
+  const res = await fetch(`${API_BASE}/reports/tests/${encodeURIComponent(testId)}/candidates?_=${Date.now()}`, { cache: 'no-store' });
   return unwrap(res);
 }
 
@@ -50,7 +50,8 @@ export async function fetchTestCandidates(testId) {
  */
 export async function fetchCandidateReport(testId, mailId) {
   const res = await fetch(
-    `${API_BASE}/reports/tests/${encodeURIComponent(testId)}/candidates/${encodeURIComponent(mailId)}`
+    `${API_BASE}/reports/tests/${encodeURIComponent(testId)}/candidates/${encodeURIComponent(mailId)}?_=${Date.now()}`,
+    { cache: 'no-store' }
   );
   return unwrap(res);
 }

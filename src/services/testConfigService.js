@@ -14,6 +14,8 @@ const DEFAULT_INITIAL_TESTS = [];
 let memoryTestsStore = [];
 let memoryTestSetMap = {};
 let memorySectionsStore = [];
+const deletedTestIds = new Set();
+const deletedSectionIds = new Set();
 
 const buildSectionPayload = (sec, idx) => {
   const qSetId = sec.questionSetId || sec.question_set_id || 'SET001';
@@ -80,30 +82,26 @@ export const testConfigService = {
       const data = response.data;
       const items = data?.items || (Array.isArray(data) ? data : []);
 
-      const mappedItems = items.map(t => {
-        const tId = t.testId || t.id;
-        let mappedSetId = memoryTestSetMap[tId] || t.questionSetId;
-        if (!mappedSetId || mappedSetId === 'SET003' || mappedSetId === 'SET010' || mappedSetId === 'sdfsdf') {
-          mappedSetId = 'SET001';
-        }
-        return { ...t, questionSetId: mappedSetId };
-      });
+      const mappedItems = items
+        .map(t => {
+          const tId = t.testId || t.id;
+          let mappedSetId = memoryTestSetMap[tId] || t.questionSetId;
+          if (!mappedSetId || mappedSetId === 'SET003' || mappedSetId === 'SET010' || mappedSetId === 'sdfsdf') {
+            mappedSetId = 'SET001';
+          }
+          return { ...t, questionSetId: mappedSetId };
+        })
+        .filter(t => !deletedTestIds.has(t.testId || t.id));
 
-      if (mappedItems.length > 0) {
-        memoryTestsStore = mappedItems;
-        return {
-          ...data,
-          items: mappedItems,
-        };
-      }
+      memoryTestsStore = mappedItems;
       return {
         ...data,
-        items: memoryTestsStore,
+        items: mappedItems,
       };
     } catch {
       return {
-        items: memoryTestsStore,
-        count: memoryTestsStore.length,
+        items: memoryTestsStore.filter(t => !deletedTestIds.has(t.testId || t.id)),
+        count: memoryTestsStore.filter(t => !deletedTestIds.has(t.testId || t.id)).length,
       };
     }
   },
@@ -226,6 +224,7 @@ export const testConfigService = {
    */
   async deleteTest(testId) {
     try {
+      deletedTestIds.add(testId);
       await testApi.delete(`/tests/${encodeURIComponent(testId)}`);
     } catch {
       // ignore
@@ -303,12 +302,14 @@ export const testConfigService = {
       const response = await testApi.get(`/tests/${encodeURIComponent(testId)}/sections`);
       const data = response.data;
       const items = data?.items || (Array.isArray(data) ? data : []);
-      if (items.length > 0) {
-        return items.map(sec => normalizeSection(sec));
-      }
-      return memorySectionsStore.filter(s => s.testId === testId).map(sec => normalizeSection(sec));
+      return items
+        .map(sec => normalizeSection(sec))
+        .filter(sec => !deletedSectionIds.has(sec.sectionId));
     } catch {
-      return memorySectionsStore.filter(s => s.testId === testId).map(sec => normalizeSection(sec));
+      return memorySectionsStore
+        .filter(s => s.testId === testId)
+        .map(sec => normalizeSection(sec))
+        .filter(sec => !deletedSectionIds.has(sec.sectionId));
     }
   },
 
@@ -382,6 +383,7 @@ export const testConfigService = {
    */
   async deleteSection(sectionId) {
     try {
+      deletedSectionIds.add(sectionId);
       await testApi.delete(`/sections/${encodeURIComponent(sectionId)}`);
     } catch {
       // ignore

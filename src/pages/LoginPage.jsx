@@ -89,16 +89,16 @@ export default function LoginPage({ onLoginSuccess }) {
       <div className="hidden md:flex md:w-1/2 relative items-center justify-center p-12 overflow-hidden h-full bg-transparent">
         
         {/* Soft radial circular spotlight behind the illustration */}
-        <div className="absolute w-[440px] h-[440px] rounded-full bg-gradient-to-tr from-blue-50/60 to-[#0B4A99]/5 border border-slate-200/20 flex items-center justify-center pointer-events-none" />
+        <div className="absolute w-[500px] h-[500px] 2xl:w-[600px] 2xl:h-[600px] rounded-full bg-gradient-to-tr from-blue-50/60 to-[#0B4A99]/5 border border-slate-200/20 flex items-center justify-center pointer-events-none" />
         
         {/* Floating Illustration with soft drop shadow */}
         <motion.img
           initial={{ opacity: 0, y: 15, scale: 0.96 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.7, ease: 'easeOut' }}
-          src="/login-page.png"
+          src="/login-page.png?v=2"
           alt="Assessments Panel"
-          className="relative w-auto h-auto max-w-[85%] max-h-[85%] object-contain select-none filter drop-shadow-[0_20px_40px_rgba(11,74,153,0.1)] z-10"
+          className="relative w-auto h-auto max-w-[95%] max-h-[95%] object-contain select-none filter drop-shadow-[0_25px_50px_rgba(11,74,153,0.12)] z-10"
         />
       </div>
 
@@ -116,9 +116,16 @@ export default function LoginPage({ onLoginSuccess }) {
             <img
               src="/idp-logo.png"
               alt="IDP Logo"
-              className="h-12 2xl:h-16 w-auto mx-auto object-contain mb-3 2xl:mb-4 filter drop-shadow-sm"
+              className="h-20 2xl:h-24 w-auto mx-auto object-contain mb-3 2xl:mb-4 filter drop-shadow-sm"
             />
-            <h1 className="text-xl 2xl:text-2xl font-black text-slate-900 tracking-tight leading-none">IDP Assess360</h1>
+            <div className="flex items-center justify-center">
+              <span className="text-xl 2xl:text-2xl font-bold text-slate-900 tracking-tight">IDP</span>
+              <span className="text-xl 2xl:text-2xl font-bold text-[#0B4A99] tracking-tight ml-1.5">Hire</span>
+              <span className="bg-[#0B4A99] text-white text-[13px] 2xl:text-[15px] font-black px-3.5 py-1.5 rounded-[6px] ml-2 leading-none">360</span>
+            </div>
+            <span className="text-[9px] 2xl:text-[10px] font-medium text-slate-500 tracking-[0.06em] uppercase mt-2 block leading-none">
+              ENTERPRISE ASSESSMENT PORTAL
+            </span>
           </div>
 
           {/* Form */}
