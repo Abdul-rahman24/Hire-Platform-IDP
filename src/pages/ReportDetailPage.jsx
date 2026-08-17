@@ -328,85 +328,118 @@ function CandidateDetail({ c, testId }) {
   );
 }
 
+function normalizeCandidatesData(rawList) {
+  if (!Array.isArray(rawList)) return [];
+  return rawList.map(c => {
+    // If sectionWisePerformance is missing or empty, construct it dynamically!
+    if (!c.sectionWisePerformance || c.sectionWisePerformance.length === 0) {
+      const performance = [];
+      
+      // 1. MCQ Section
+      if (Array.isArray(c.questionResults) && c.questionResults.length > 0) {
+        const totalMarks = c.questionResults.reduce((sum, q) => sum + (q.maximumMarks != null ? Number(q.maximumMarks) : 0), 0);
+        const score = c.sectionScores?.MCQ != null 
+          ? Number(c.sectionScores.MCQ) 
+          : c.questionResults.reduce((sum, q) => sum + (q.marksAwarded != null ? Number(q.marksAwarded) : 0), 0);
+        performance.push({
+          sectionId: 'MCQ',
+          sectionName: 'MCQ',
+          score: score,
+          totalMarks: totalMarks,
+          questions: c.questionResults.map(q => ({
+            ...q,
+            type: 'MCQ',
+            questionType: 'MCQ'
+          }))
+        });
+      }
+      
+      // 2. Coding Section
+      if (Array.isArray(c.codingAnswers) && c.codingAnswers.length > 0) {
+        const totalMarks = c.codingAnswers.reduce((sum, q) => sum + (q.maximumMarks != null ? Number(q.maximumMarks) : 0), 0);
+        const score = c.sectionScores?.CODING != null 
+          ? Number(c.sectionScores.CODING) 
+          : c.codingAnswers.reduce((sum, q) => sum + (q.score != null ? Number(q.score) : 0), 0);
+        performance.push({
+          sectionId: 'CODING',
+          sectionName: 'CODING',
+          score: score,
+          totalMarks: totalMarks,
+          questions: c.codingAnswers.map(q => ({
+            ...q,
+            type: 'CODING',
+            questionType: 'CODING'
+          }))
+        });
+      }
+      
+      // 3. Descriptive Section
+      if (Array.isArray(c.descriptiveAnswers) && c.descriptiveAnswers.length > 0) {
+        const totalMarks = c.descriptiveAnswers.reduce((sum, q) => sum + (q.maximumMarks != null ? Number(q.maximumMarks) : (q.maxMarks != null ? Number(q.maxMarks) : 0)), 0);
+        const score = c.sectionScores?.DESCRIPTIVE != null 
+          ? Number(c.sectionScores.DESCRIPTIVE) 
+          : c.descriptiveAnswers.reduce((sum, q) => sum + (q.score != null ? Number(q.score) : 0), 0);
+        performance.push({
+          sectionId: 'DESCRIPTIVE',
+          sectionName: 'DESCRIPTIVE',
+          score: score,
+          totalMarks: totalMarks,
+          questions: c.descriptiveAnswers.map(q => ({
+            ...q,
+            type: 'DESCRIPTIVE',
+            questionType: 'DESCRIPTIVE'
+          }))
+        });
+      }
+      
+      return {
+        ...c,
+        sectionWisePerformance: performance
+      };
+    }
+    return c;
+  });
+}
+
 export default function ReportDetailPage() {
   const { testId } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [isLimitOpen, setIsLimitOpen] = useState(false);
+  const limitDropdownRef = useRef(null);
+  const shouldScrollRef = useRef(false);
+  const prevLoadingRef = useRef(false);
+
   const { data: report, loading, error, refresh } = useReportsData(fetchTestReport, testId);
-  const { data: candidatesRaw, loading: candidatesLoading, error: candidatesError, refresh: refreshCandidates } = useReportsData(fetchTestCandidates, testId);
+  const { data: candidatesRaw, loading: candidatesLoading, error: candidatesError, refresh: refreshCandidates } = useReportsData(
+    fetchTestCandidates,
+    testId,
+    currentPage,
+    itemsPerPage
+  );
+
+  const { data: allCandidatesRaw, loading: allCandidatesLoading } = useReportsData(
+    fetchTestCandidates,
+    testId,
+    1,
+    10000
+  );
+
+  const totalPages = candidatesRaw?.totalPages || 1;
+  const totalReportsCount = candidatesRaw?.totalReports || 0;
 
   const candidates = useMemo(() => {
-    if (!Array.isArray(candidatesRaw)) return [];
-    return candidatesRaw.map(c => {
-      // If sectionWisePerformance is missing or empty, construct it dynamically!
-      if (!c.sectionWisePerformance || c.sectionWisePerformance.length === 0) {
-        const performance = [];
-        
-        // 1. MCQ Section
-        if (Array.isArray(c.questionResults) && c.questionResults.length > 0) {
-          const totalMarks = c.questionResults.reduce((sum, q) => sum + (q.maximumMarks != null ? Number(q.maximumMarks) : 0), 0);
-          const score = c.sectionScores?.MCQ != null 
-            ? Number(c.sectionScores.MCQ) 
-            : c.questionResults.reduce((sum, q) => sum + (q.marksAwarded != null ? Number(q.marksAwarded) : 0), 0);
-          performance.push({
-            sectionId: 'MCQ',
-            sectionName: 'MCQ',
-            score: score,
-            totalMarks: totalMarks,
-            questions: c.questionResults.map(q => ({
-              ...q,
-              type: 'MCQ',
-              questionType: 'MCQ'
-            }))
-          });
-        }
-        
-        // 2. Coding Section
-        if (Array.isArray(c.codingAnswers) && c.codingAnswers.length > 0) {
-          const totalMarks = c.codingAnswers.reduce((sum, q) => sum + (q.maximumMarks != null ? Number(q.maximumMarks) : 0), 0);
-          const score = c.sectionScores?.CODING != null 
-            ? Number(c.sectionScores.CODING) 
-            : c.codingAnswers.reduce((sum, q) => sum + (q.score != null ? Number(q.score) : 0), 0);
-          performance.push({
-            sectionId: 'CODING',
-            sectionName: 'CODING',
-            score: score,
-            totalMarks: totalMarks,
-            questions: c.codingAnswers.map(q => ({
-              ...q,
-              type: 'CODING',
-              questionType: 'CODING'
-            }))
-          });
-        }
-        
-        // 3. Descriptive Section
-        if (Array.isArray(c.descriptiveAnswers) && c.descriptiveAnswers.length > 0) {
-          const totalMarks = c.descriptiveAnswers.reduce((sum, q) => sum + (q.maximumMarks != null ? Number(q.maximumMarks) : (q.maxMarks != null ? Number(q.maxMarks) : 0)), 0);
-          const score = c.sectionScores?.DESCRIPTIVE != null 
-            ? Number(c.sectionScores.DESCRIPTIVE) 
-            : c.descriptiveAnswers.reduce((sum, q) => sum + (q.score != null ? Number(q.score) : 0), 0);
-          performance.push({
-            sectionId: 'DESCRIPTIVE',
-            sectionName: 'DESCRIPTIVE',
-            score: score,
-            totalMarks: totalMarks,
-            questions: c.descriptiveAnswers.map(q => ({
-              ...q,
-              type: 'DESCRIPTIVE',
-              questionType: 'DESCRIPTIVE'
-            }))
-          });
-        }
-        
-        return {
-          ...c,
-          sectionWisePerformance: performance
-        };
-      }
-      return c;
-    });
+    const rawList = candidatesRaw?.reports || (Array.isArray(candidatesRaw) ? candidatesRaw : []);
+    return normalizeCandidatesData(rawList);
   }, [candidatesRaw]);
+
+  const allCandidates = useMemo(() => {
+    const rawList = allCandidatesRaw?.reports || (Array.isArray(allCandidatesRaw) ? allCandidatesRaw : []);
+    return normalizeCandidatesData(rawList);
+  }, [allCandidatesRaw]);
 
   // Dismissable banner state
   const [dismissed, setDismissed] = useState({});
@@ -497,7 +530,7 @@ export default function ReportDetailPage() {
     let pendingDescriptiveCount = 0;
     let pendingAnyCount = 0;
 
-    candidates.forEach((c) => {
+    allCandidates.forEach((c) => {
       const statusStr = (c.status || '').toUpperCase();
       const isOngoing = statusStr === 'PROGRESS' || statusStr === 'STARTED' || statusStr === 'IN_PROGRESS' || statusStr === 'IN PROGRESS';
       if (isOngoing) return;
@@ -554,7 +587,7 @@ export default function ReportDetailPage() {
       pendingDescriptiveCount,
       pendingAnyCount
     };
-  }, [candidates]);
+  }, [allCandidates]);
 
   const [sortBy, setSortBy] = useState('top'); // top, bottom, name, recent
   const [isSortOpen, setIsSortOpen] = useState(false);
@@ -596,10 +629,30 @@ export default function ReportDetailPage() {
       if (filterDropdownRef.current && !filterDropdownRef.current.contains(event.target)) {
         setIsFilterOpen(false);
       }
+      if (limitDropdownRef.current && !limitDropdownRef.current.contains(event.target)) {
+        setIsLimitOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, validationFilter, sortBy]);
+
+  useEffect(() => {
+    if (prevLoadingRef.current && !candidatesLoading) {
+      if (shouldScrollRef.current) {
+        shouldScrollRef.current = false;
+        const element = document.getElementById('candidates-section');
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    }
+    prevLoadingRef.current = candidatesLoading;
+  }, [candidatesLoading]);
 
   useEffect(() => {
     if (location.state?.expandMail && candidates.length > 0) {
@@ -853,11 +906,11 @@ export default function ReportDetailPage() {
   const completedPct = effectiveTotal > 0 ? (completed / effectiveTotal) * 100 : 0;
 
   const reportsHasDescriptive = !!(
-    candidates.some(c => c.sectionWisePerformance?.some(sec => isDescriptiveSection(sec))) ||
+    allCandidates.some(c => c.sectionWisePerformance?.some(sec => isDescriptiveSection(sec))) ||
     report?.sections?.some(sec => isDescriptiveSection(sec))
   );
   const reportsHasCoding = !!(
-    candidates.some(c => c.sectionWisePerformance?.some(sec => isCodingSection(sec))) ||
+    allCandidates.some(c => c.sectionWisePerformance?.some(sec => isCodingSection(sec))) ||
     report?.sections?.some(sec => isCodingSection(sec))
   );
 
@@ -1082,16 +1135,16 @@ export default function ReportDetailPage() {
             // Bucket candidates by percentage
             const buckets = ranges.map(r => ({
               ...r,
-              count: candidates.filter(c => {
+              count: allCandidates.filter(c => {
                 const p = safeNum(c.percentage);
                 return p >= r.min && p <= r.max;
               }).length,
             }));
 
             const maxCount = Math.max(...buckets.map(b => b.count), 1);
-            const hasCandidates = candidates.length > 0;
+            const hasCandidates = allCandidates.length > 0;
 
-            if (candidatesLoading && candidates.length === 0) {
+            if (allCandidatesLoading && allCandidates.length === 0) {
               return (
                 <div className="flex items-center justify-center h-[160px]">
                   <div className="flex items-center space-x-2 text-slate-400 text-xs font-medium">
@@ -1142,11 +1195,11 @@ export default function ReportDetailPage() {
                 {/* Summary */}
                 <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
                   <span className="text-[10px] text-slate-400 font-medium">
-                    {candidates.length} candidate{candidates.length !== 1 ? 's' : ''} scored
+                    {allCandidates.length} candidate{allCandidates.length !== 1 ? 's' : ''} scored
                   </span>
                   <span className="text-[10px] text-slate-400 font-medium">
                     Median: {(() => {
-                      const sorted = candidates.map(c => safeNum(c.percentage)).sort((a, b) => a - b);
+                      const sorted = allCandidates.map(c => safeNum(c.percentage)).sort((a, b) => a - b);
                       const mid = Math.floor(sorted.length / 2);
                       return sorted.length % 2 !== 0 ? sorted[mid] : ((sorted[mid - 1] + sorted[mid]) / 2).toFixed(0);
                     })()}%
@@ -1227,14 +1280,14 @@ export default function ReportDetailPage() {
       </div>
 
       {/* ── Candidates Table ── */}
-      <div className="bg-white rounded-xl border border-slate-200/70 shadow-sm">
+      <div id="candidates-section" className="bg-white rounded-xl border border-slate-200/70 shadow-sm">
         <div className="px-5 py-4 border-b border-slate-100 flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center bg-slate-50/10">
           <div className="flex items-center space-x-2">
             <FiUser className="w-4 h-4 text-slate-400" />
             <h3 className="text-[14px] font-bold text-slate-800">Candidates</h3>
             {!candidatesLoading && (
               <span className="bg-[#eff2f6] text-slate-500 text-[10px] font-semibold px-2 py-0.5 rounded-full">
-                {candidates.length}
+                {totalReportsCount}
               </span>
             )}
           </div>
@@ -1287,6 +1340,7 @@ export default function ReportDetailPage() {
                         onClick={() => {
                           setValidationFilter(opt.val);
                           setIsFilterOpen(false);
+                          shouldScrollRef.current = true;
                         }}
                         className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-left transition-all ${
                           isSelected
@@ -1349,6 +1403,7 @@ export default function ReportDetailPage() {
                         onClick={() => {
                           setSortBy(opt.val);
                           setIsSortOpen(false);
+                          shouldScrollRef.current = true;
                         }}
                         className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-left transition-all ${
                           isSelected
@@ -1414,9 +1469,9 @@ export default function ReportDetailPage() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {/* Loading skeleton */}
-              {candidatesLoading && candidates.length === 0 && (
+              {candidatesLoading && (
                 <>
-                  {[...Array(3)].map((_, i) => (
+                  {[...Array(itemsPerPage)].map((_, i) => (
                     <tr key={i} className="animate-pulse">
                       <td className="px-2 py-4 text-center"><div className="h-4 w-4 bg-slate-100 rounded mx-auto" /></td>
                       <td className="px-3 py-4 text-left"><div className="h-4 bg-slate-100 rounded-md w-40" /></td>
@@ -1455,7 +1510,7 @@ export default function ReportDetailPage() {
                 </tr>
               )}
 
-              {sortedCandidates.map((c) => {
+              {!candidatesLoading && sortedCandidates.map((c) => {
                 const isExpanded = expandedMail === c.mailId;
                 const status = c.status || 'UNKNOWN';
                 const statusBadge = status === 'PASSED'
@@ -1584,6 +1639,109 @@ export default function ReportDetailPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Dynamic Pagination Controls */}
+        {totalReportsCount > 0 && (
+          <div className="px-5 py-3.5 border-t border-slate-100 flex flex-col sm:flex-row gap-4 items-center justify-between bg-slate-50/30">
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto text-center sm:text-left">
+              <span className="text-[11px] text-slate-400 font-medium">
+                Showing {totalReportsCount > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}–{Math.min(currentPage * itemsPerPage, totalReportsCount)} of {totalReportsCount}
+              </span>
+              <div className="flex items-center space-x-1.5">
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Per Page:</span>
+                <div className="relative" ref={limitDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsLimitOpen(prev => !prev)}
+                    className={`flex items-center justify-between px-2.5 py-1 bg-white border rounded-lg text-[11px] font-bold shadow-xs transition-all ${
+                      isLimitOpen
+                        ? 'border-[#0B4A99] ring-2 ring-[#0B4A99]/15 shadow-sm'
+                        : 'border-slate-200 hover:border-slate-300'
+                    } cursor-pointer text-slate-700 w-16`}
+                  >
+                    <span>{itemsPerPage}</span>
+                    <div className={`transition-transform duration-200 ${isLimitOpen ? 'rotate-180 text-[#0B4A99]' : 'text-slate-400'} flex-shrink-0 ml-1.5`}>
+                      <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </button>
+
+                  {isLimitOpen && (
+                    <div className="absolute left-0 bottom-full mb-1 z-[990] bg-white border border-slate-200 rounded-xl shadow-xl p-1 space-y-0.5 animate-fade-in w-20 flex flex-col">
+                      {[10, 25, 50, 100].map((size) => {
+                        const isSelected = size === itemsPerPage;
+                        return (
+                          <button
+                            key={size}
+                            type="button"
+                            onClick={() => {
+                              setItemsPerPage(size);
+                              setCurrentPage(1);
+                              setIsLimitOpen(false);
+                              shouldScrollRef.current = true;
+                            }}
+                            className={`w-full flex items-center justify-between px-2 py-1 rounded-lg text-[11px] font-semibold text-left transition-all ${
+                              isSelected
+                                ? 'bg-blue-50/60 text-[#0B4A99] font-bold shadow-xs'
+                                : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                            }`}
+                          >
+                            {size}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            {totalPages > 1 && (
+              <div className="flex items-center space-x-1 justify-center">
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setCurrentPage(p => Math.max(1, p - 1));
+                    shouldScrollRef.current = true;
+                  }} 
+                  disabled={currentPage === 1 || candidatesLoading} 
+                  className="w-7 h-7 flex items-center justify-center rounded-[8px] border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40 text-xs font-bold cursor-pointer disabled:cursor-not-allowed"
+                >
+                  ‹
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                  <button 
+                    key={p} 
+                    type="button"
+                    onClick={() => {
+                      setCurrentPage(p);
+                      shouldScrollRef.current = true;
+                    }} 
+                    disabled={candidatesLoading}
+                    className={`w-7 h-7 flex items-center justify-center rounded-[8px] text-xs font-bold transition-all cursor-pointer ${
+                      p === currentPage 
+                        ? 'bg-[#0B4A99] text-white font-bold shadow-xs' 
+                        : 'border border-slate-200 text-slate-500 hover:bg-slate-100'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+                <button 
+                  type="button"
+                  onClick={() => {
+                    setCurrentPage(p => Math.min(totalPages, p + 1));
+                    shouldScrollRef.current = true;
+                  }} 
+                  disabled={currentPage === totalPages || candidatesLoading} 
+                  className="w-7 h-7 flex items-center justify-center rounded-[8px] border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-40 text-xs font-bold cursor-pointer disabled:cursor-not-allowed"
+                >
+                  ›
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -173,6 +173,7 @@ export function SectionDrawer({
       durationMinutes: Number(form.durationMinutes),
       marks: Number(form.marks),
       order: Number(form.order),
+      shuffleOptions: resolvedType.toUpperCase() === 'MCQ' ? !!form.shuffleOptions : false,
     }, {
       durationMinutes: Number(adjustableTestDuration),
       totalMarks: Number(adjustableTestMarks),
@@ -294,27 +295,31 @@ export function SectionDrawer({
           />
         </Field>
 
-        <div className="flex flex-col space-y-2.5 pt-2 border-t border-slate-100">
-          <label className="flex items-center space-x-2.5 font-semibold text-slate-700 cursor-pointer text-xs">
-            <input
-              type="checkbox"
-              checked={form.shuffleQuestions}
-              onChange={e => set('shuffleQuestions', e.target.checked)}
-              className="w-4 h-4 text-[#2563EB] border-slate-300 rounded focus:ring-[#2563EB]"
-            />
-            <span>Shuffle Questions in Section</span>
-          </label>
+        {form.questionSetId && (
+          <div className="flex flex-col space-y-2.5 pt-2 border-t border-slate-100">
+            <label className="flex items-center space-x-2.5 font-semibold text-slate-700 cursor-pointer text-xs">
+              <input
+                type="checkbox"
+                checked={form.shuffleQuestions}
+                onChange={e => set('shuffleQuestions', e.target.checked)}
+                className="w-4 h-4 text-[#2563EB] border-slate-300 rounded focus:ring-[#2563EB]"
+              />
+              <span>Shuffle Questions in Section</span>
+            </label>
 
-          <label className="flex items-center space-x-2.5 font-semibold text-slate-700 cursor-pointer text-xs">
-            <input
-              type="checkbox"
-              checked={form.shuffleOptions}
-              onChange={e => set('shuffleOptions', e.target.checked)}
-              className="w-4 h-4 text-[#2563EB] border-slate-300 rounded focus:ring-[#2563EB]"
-            />
-            <span>Shuffle MCQ Options in Section</span>
-          </label>
-        </div>
+            {(form.questionType || '').toUpperCase() === 'MCQ' && (
+              <label className="flex items-center space-x-2.5 font-semibold text-slate-700 cursor-pointer text-xs">
+                <input
+                  type="checkbox"
+                  checked={form.shuffleOptions}
+                  onChange={e => set('shuffleOptions', e.target.checked)}
+                  className="w-4 h-4 text-[#2563EB] border-slate-300 rounded focus:ring-[#2563EB]"
+                />
+                <span>Shuffle MCQ Options in Section</span>
+              </label>
+            )}
+          </div>
+        )}
 
         {/* Redirect Validation and limits updates */}
         {(durationExceeded || marksExceeded) && (

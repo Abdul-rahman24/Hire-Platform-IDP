@@ -39,8 +39,8 @@ export async function fetchTestReport(testId) {
  * GET /reports/tests/{testId}/candidates
  * Fetch ALL candidate reports for a given test.
  */
-export async function fetchTestCandidates(testId) {
-  const res = await fetch(`${API_BASE}/reports/tests/${encodeURIComponent(testId)}/candidates?_=${Date.now()}`, { cache: 'no-store' });
+export async function fetchTestCandidates(testId, page = 1, limit = 10) {
+  const res = await fetch(`${API_BASE}/reports/tests/${encodeURIComponent(testId)}/candidates?page=${page}&limit=${limit}&_=${Date.now()}`, { cache: 'no-store' });
   return unwrap(res);
 }
 
