@@ -9,6 +9,7 @@ import ReportDetailPage from './pages/ReportDetailPage';
 import CodeReviewPage from './pages/CodeReviewPage';
 import DescriptiveReviewPage from './pages/DescriptiveReviewPage';
 import LoginPage from './pages/LoginPage';
+import AdminDashboardPage from './pages/AdminDashboardPage';
 import { ToastProvider } from './components/tc/Toast';
 
 // Secure route guard wrapper
@@ -35,8 +36,8 @@ function App() {
               <ProtectedRoute>
                 <MainLayout>
                   <Routes>
-                    <Route path="/" element={<Navigate to="/question-bank" replace />} />
-                    <Route path="/dashboard" element={<Navigate to="/question-bank" replace />} />
+                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/dashboard" element={<AdminDashboardPage />} />
                     <Route path="/question-bank/*" element={<QuestionBankApp />} />
                     <Route path="/test-configuration" element={<TestListPage />} />
                     <Route path="/test-configuration/details/:id" element={<TestDetailsPage />} />

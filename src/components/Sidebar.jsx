@@ -1,8 +1,13 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { FiDatabase, FiFileText, FiBarChart2, FiLogOut } from 'react-icons/fi';
+import { FiDatabase, FiFileText, FiBarChart2, FiLogOut, FiPieChart } from 'react-icons/fi';
 
 const NAV_ITEMS = [
+  {
+    label: 'Dashboard',
+    path: '/dashboard',
+    icon: <FiPieChart className="w-4 h-4" />,
+  },
   {
     label: 'Question Bank',
     path: '/question-bank',
