@@ -249,7 +249,7 @@ export default function TestListPage() {
       {/* Table Container */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
         <div className="overflow-x-auto overflow-y-hidden scrollbar-thin">
-          <table className="w-full text-left table-fixed">
+          <table className="w-full text-left table-fixed min-w-[850px]">
             <thead>
               <tr className="border-b border-slate-100 bg-[#f8fafc]/95 backdrop-blur-xs">
                 <th className="px-5 py-3.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider w-[30%]">Test Name</th>

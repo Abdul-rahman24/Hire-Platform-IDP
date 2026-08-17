@@ -428,8 +428,8 @@ export default function TestDetailsPage() {
               )}
 
               {/* Candidate Test Link display */}
-              <div className="mt-3 bg-slate-50 border border-slate-200/60 rounded-xl p-3 flex items-center justify-between gap-3 max-w-xl">
-                <div className="min-w-0 flex-1">
+              <div className="mt-3 bg-slate-50 border border-slate-200/60 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 max-w-xl">
+                <div className="min-w-0 flex-1 w-full">
                   <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Candidate Test Link</p>
                   <p className="text-xs font-mono text-[#0B4A99] truncate mt-0.5 select-all">
                     {testData.linkId || testData.link_id 
@@ -444,7 +444,7 @@ export default function TestDetailsPage() {
                       navigator.clipboard.writeText(`https://idpassess.trn.dev.idp.com/${testData.linkId || testData.link_id}`);
                       toast && toast({ type: 'success', title: 'Link Copied', message: 'Test URL copied to clipboard.' });
                     }}
-                    className="flex-shrink-0 px-2.5 py-1.5 bg-white border border-slate-250 hover:border-[#0B4A99] text-[10px] font-bold text-slate-600 hover:text-[#0B4A99] rounded-lg transition-all shadow-xs cursor-pointer"
+                    className="w-full sm:w-auto flex-shrink-0 px-2.5 py-1.5 bg-white border border-slate-250 hover:border-[#0B4A99] text-[10px] font-bold text-slate-600 hover:text-[#0B4A99] rounded-lg transition-all shadow-xs cursor-pointer text-center"
                   >
                     Copy Link
                   </button>

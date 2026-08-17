@@ -13,6 +13,76 @@ const isCodingSection = (sec) => {
   return !!(hasCodingQuestion || hasCodingName);
 };
 
+const normalizeCandidate = (c) => {
+  if (!c) return c;
+  if (!c.sectionWisePerformance || c.sectionWisePerformance.length === 0) {
+    const performance = [];
+    
+    // 1. MCQ Section
+    if (Array.isArray(c.questionResults) && c.questionResults.length > 0) {
+      const totalMarks = c.questionResults.reduce((sum, q) => sum + (q.maximumMarks != null ? Number(q.maximumMarks) : 0), 0);
+      const score = c.sectionScores?.MCQ != null 
+        ? Number(c.sectionScores.MCQ) 
+        : c.questionResults.reduce((sum, q) => sum + (q.marksAwarded != null ? Number(q.marksAwarded) : 0), 0);
+      performance.push({
+        sectionId: 'MCQ',
+        sectionName: 'MCQ',
+        score: score,
+        totalMarks: totalMarks,
+        questions: c.questionResults.map(q => ({
+          ...q,
+          type: 'MCQ',
+          questionType: 'MCQ'
+        }))
+      });
+    }
+    
+    // 2. Coding Section
+    if (Array.isArray(c.codingAnswers) && c.codingAnswers.length > 0) {
+      const totalMarks = c.codingAnswers.reduce((sum, q) => sum + (q.maximumMarks != null ? Number(q.maximumMarks) : 0), 0);
+      const score = c.sectionScores?.CODING != null 
+        ? Number(c.sectionScores.CODING) 
+        : c.codingAnswers.reduce((sum, q) => sum + (q.score != null ? Number(q.score) : 0), 0);
+      performance.push({
+        sectionId: 'CODING',
+        sectionName: 'CODING',
+        score: score,
+        totalMarks: totalMarks,
+        questions: c.codingAnswers.map(q => ({
+          ...q,
+          type: 'CODING',
+          questionType: 'CODING'
+        }))
+      });
+    }
+    
+    // 3. Descriptive Section
+    if (Array.isArray(c.descriptiveAnswers) && c.descriptiveAnswers.length > 0) {
+      const totalMarks = c.descriptiveAnswers.reduce((sum, q) => sum + (q.maximumMarks != null ? Number(q.maximumMarks) : (q.maxMarks != null ? Number(q.maxMarks) : 0)), 0);
+      const score = c.sectionScores?.DESCRIPTIVE != null 
+        ? Number(c.sectionScores.DESCRIPTIVE) 
+        : c.descriptiveAnswers.reduce((sum, q) => sum + (q.score != null ? Number(q.score) : 0), 0);
+      performance.push({
+        sectionId: 'DESCRIPTIVE',
+        sectionName: 'DESCRIPTIVE',
+        score: score,
+        totalMarks: totalMarks,
+        questions: c.descriptiveAnswers.map(q => ({
+          ...q,
+          type: 'DESCRIPTIVE',
+          questionType: 'DESCRIPTIVE'
+        }))
+      });
+    }
+    
+    return {
+      ...c,
+      sectionWisePerformance: performance
+    };
+  }
+  return c;
+};
+
 export default function CodeReviewPage() {
   const { testId, mailId } = useParams();
   const navigate = useNavigate();
@@ -43,11 +113,12 @@ export default function CodeReviewPage() {
           fetchCandidateReport(testId, mailId),
           fetchTestReport(testId).catch(() => null)
         ]);
-        setCandidate(candData);
+        const normalizedCand = normalizeCandidate(candData);
+        setCandidate(normalizedCand);
         setTestReport(reportData);
 
         // Prepopulate scores
-        const codingSec = candData?.sectionWisePerformance?.find(
+        const codingSec = normalizedCand?.sectionWisePerformance?.find(
           (sec) => isCodingSection(sec)
         );
         const initialScores = {};
@@ -196,7 +267,7 @@ export default function CodeReviewPage() {
         }
       }
 
-      navigate(`/reports/${testId}`);
+      navigate(`/reports/${testId}`, { state: { expandMail: mailId } });
     } catch (err) {
       console.error('Failed to submit coding scores:', err);
     } finally {
@@ -250,7 +321,7 @@ export default function CodeReviewPage() {
 
       {/* Main Info Card */}
       <div className="bg-white rounded-xl border border-slate-200/70 shadow-sm p-5">
-        <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-100">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-slate-100">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#0B4A99] flex items-center justify-center font-bold text-xs">
               {(candidate?.candidateName || '??').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}

@@ -151,7 +151,7 @@ export default function ReportsListPage() {
         </div>
 
         <div className="overflow-x-auto overflow-y-hidden">
-          <table className="w-full text-left">
+          <table className="w-full text-left min-w-[700px]">
             <thead>
               <tr className="border-b border-slate-100 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/20">
                 <th className="px-5 py-3 w-[45%]">Test Name</th>

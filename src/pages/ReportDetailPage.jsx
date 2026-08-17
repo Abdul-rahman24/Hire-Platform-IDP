@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   FiArrowLeft, FiRefreshCw, FiAlertCircle, FiCheckCircle,
   FiAward, FiTrendingUp, FiClock, FiAlertTriangle,
-  FiInfo, FiX, FiUser, FiChevronDown, FiChevronUp, FiMail, FiDownload
+  FiInfo, FiX, FiUser, FiChevronDown, FiChevronUp, FiMail, FiDownload, FiSearch
 } from 'react-icons/fi';
 import { fetchTestReport, fetchTestCandidates, API_BASE } from '../api/reportsApi';
 import { useReportsData } from '../hooks/useReportsData';
@@ -335,11 +335,84 @@ export default function ReportDetailPage() {
   const { data: report, loading, error, refresh } = useReportsData(fetchTestReport, testId);
   const { data: candidatesRaw, loading: candidatesLoading, error: candidatesError, refresh: refreshCandidates } = useReportsData(fetchTestCandidates, testId);
 
-  const candidates = Array.isArray(candidatesRaw) ? candidatesRaw : [];
+  const candidates = useMemo(() => {
+    if (!Array.isArray(candidatesRaw)) return [];
+    return candidatesRaw.map(c => {
+      // If sectionWisePerformance is missing or empty, construct it dynamically!
+      if (!c.sectionWisePerformance || c.sectionWisePerformance.length === 0) {
+        const performance = [];
+        
+        // 1. MCQ Section
+        if (Array.isArray(c.questionResults) && c.questionResults.length > 0) {
+          const totalMarks = c.questionResults.reduce((sum, q) => sum + (q.maximumMarks != null ? Number(q.maximumMarks) : 0), 0);
+          const score = c.sectionScores?.MCQ != null 
+            ? Number(c.sectionScores.MCQ) 
+            : c.questionResults.reduce((sum, q) => sum + (q.marksAwarded != null ? Number(q.marksAwarded) : 0), 0);
+          performance.push({
+            sectionId: 'MCQ',
+            sectionName: 'MCQ',
+            score: score,
+            totalMarks: totalMarks,
+            questions: c.questionResults.map(q => ({
+              ...q,
+              type: 'MCQ',
+              questionType: 'MCQ'
+            }))
+          });
+        }
+        
+        // 2. Coding Section
+        if (Array.isArray(c.codingAnswers) && c.codingAnswers.length > 0) {
+          const totalMarks = c.codingAnswers.reduce((sum, q) => sum + (q.maximumMarks != null ? Number(q.maximumMarks) : 0), 0);
+          const score = c.sectionScores?.CODING != null 
+            ? Number(c.sectionScores.CODING) 
+            : c.codingAnswers.reduce((sum, q) => sum + (q.score != null ? Number(q.score) : 0), 0);
+          performance.push({
+            sectionId: 'CODING',
+            sectionName: 'CODING',
+            score: score,
+            totalMarks: totalMarks,
+            questions: c.codingAnswers.map(q => ({
+              ...q,
+              type: 'CODING',
+              questionType: 'CODING'
+            }))
+          });
+        }
+        
+        // 3. Descriptive Section
+        if (Array.isArray(c.descriptiveAnswers) && c.descriptiveAnswers.length > 0) {
+          const totalMarks = c.descriptiveAnswers.reduce((sum, q) => sum + (q.maximumMarks != null ? Number(q.maximumMarks) : (q.maxMarks != null ? Number(q.maxMarks) : 0)), 0);
+          const score = c.sectionScores?.DESCRIPTIVE != null 
+            ? Number(c.sectionScores.DESCRIPTIVE) 
+            : c.descriptiveAnswers.reduce((sum, q) => sum + (q.score != null ? Number(q.score) : 0), 0);
+          performance.push({
+            sectionId: 'DESCRIPTIVE',
+            sectionName: 'DESCRIPTIVE',
+            score: score,
+            totalMarks: totalMarks,
+            questions: c.descriptiveAnswers.map(q => ({
+              ...q,
+              type: 'DESCRIPTIVE',
+              questionType: 'DESCRIPTIVE'
+            }))
+          });
+        }
+        
+        return {
+          ...c,
+          sectionWisePerformance: performance
+        };
+      }
+      return c;
+    });
+  }, [candidatesRaw]);
 
   // Dismissable banner state
   const [dismissed, setDismissed] = useState({});
   const dismiss = (key) => setDismissed((d) => ({ ...d, [key]: true }));
+
+  const location = useLocation();
 
   // Expanded candidate row
   const [expandedMail, setExpandedMail] = useState(null);
@@ -347,6 +420,210 @@ export default function ReportDetailPage() {
   
   // Validation status filter state
   const [validationFilter, setValidationFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const filterDropdownRef = useRef(null);
+
+  const filteredCandidates = useMemo(() => {
+    return candidates.filter((c) => {
+      // 1. Search filter
+      if (searchQuery.trim() !== '') {
+        const q = searchQuery.toLowerCase().trim();
+        const nameMatch = c.candidateName?.toLowerCase().includes(q);
+        const emailMatch = c.mailId?.toLowerCase().includes(q);
+        if (!nameMatch && !emailMatch) return false;
+      }
+
+      // 2. Load section details for validation checks
+      const codingSection = c.sectionWisePerformance?.find(
+        (sec) => isCodingSection(sec)
+      );
+      const hasCoding = !!codingSection;
+      const attemptedCoding = codingSection && codingSection.questions?.some(q => q.studentAnswer && q.studentAnswer.trim() !== '');
+
+      const isCodingValidated = !hasCoding || !!(
+        c.codingValidated || 
+        c.isCodingValidated || 
+        codingSection?.validated || 
+        codingSection?.isCodingValidated ||
+        (codingSection && codingSection.score > 0) ||
+        (codingSection && !attemptedCoding)
+      );
+
+      const descriptiveSection = c.sectionWisePerformance?.find(
+        (sec) => isDescriptiveSection(sec)
+      );
+      const hasDescriptive = !!descriptiveSection;
+      const attemptedDescriptive = descriptiveSection && descriptiveSection.questions?.some(q => q.studentAnswer && q.studentAnswer.trim() !== '');
+
+      const isDescriptiveValidated = !hasDescriptive || !!(
+        c.descriptiveValidated || 
+        c.isDescriptiveValidated || 
+        descriptiveSection?.validated || 
+        descriptiveSection?.isDescriptiveValidated ||
+        (descriptiveSection && descriptiveSection.score > 0) ||
+        (descriptiveSection && !attemptedDescriptive)
+      );
+
+      const statusStr = (c.status || '').toUpperCase();
+      const isOngoing = statusStr === 'PROGRESS' || statusStr === 'STARTED' || statusStr === 'IN_PROGRESS' || statusStr === 'IN PROGRESS';
+
+      if (validationFilter === 'pending') {
+        if (isOngoing) return false;
+        return hasCoding && attemptedCoding && !isCodingValidated;
+      }
+      if (validationFilter === 'pending_descriptive') {
+        if (isOngoing) return false;
+        return hasDescriptive && attemptedDescriptive && !isDescriptiveValidated;
+      }
+      if (validationFilter === 'pending_any') {
+        if (isOngoing) return false;
+        return (hasCoding && attemptedCoding && !isCodingValidated) || 
+               (hasDescriptive && attemptedDescriptive && !isDescriptiveValidated);
+      }
+      if (validationFilter === 'validated') {
+        if (isOngoing) return false;
+        return (!hasCoding || !attemptedCoding || isCodingValidated) && 
+               (!hasDescriptive || !attemptedDescriptive || isDescriptiveValidated);
+      }
+      return true;
+    });
+  }, [candidates, searchQuery, validationFilter]);
+
+  const validationStats = useMemo(() => {
+    let completedCount = 0;
+    let validationCompletedCount = 0;
+    let pendingCodingCount = 0;
+    let pendingDescriptiveCount = 0;
+    let pendingAnyCount = 0;
+
+    candidates.forEach((c) => {
+      const statusStr = (c.status || '').toUpperCase();
+      const isOngoing = statusStr === 'PROGRESS' || statusStr === 'STARTED' || statusStr === 'IN_PROGRESS' || statusStr === 'IN PROGRESS';
+      if (isOngoing) return;
+
+      completedCount++;
+
+      const codingSection = c.sectionWisePerformance?.find(
+        (sec) => isCodingSection(sec)
+      );
+      const hasCoding = !!codingSection;
+      const attemptedCoding = codingSection && codingSection.questions?.some(q => q.studentAnswer && q.studentAnswer.trim() !== '');
+
+      const isCodingValidated = !hasCoding || !!(
+        c.codingValidated || 
+        c.isCodingValidated || 
+        codingSection?.validated || 
+        codingSection?.isCodingValidated ||
+        (codingSection && codingSection.score > 0) ||
+        (codingSection && !attemptedCoding)
+      );
+
+      const descriptiveSection = c.sectionWisePerformance?.find(
+        (sec) => isDescriptiveSection(sec)
+      );
+      const hasDescriptive = !!descriptiveSection;
+      const attemptedDescriptive = descriptiveSection && descriptiveSection.questions?.some(q => q.studentAnswer && q.studentAnswer.trim() !== '');
+
+      const isDescriptiveValidated = !hasDescriptive || !!(
+        c.descriptiveValidated || 
+        c.isDescriptiveValidated || 
+        descriptiveSection?.validated || 
+        descriptiveSection?.isDescriptiveValidated ||
+        (descriptiveSection && descriptiveSection.score > 0) ||
+        (descriptiveSection && !attemptedDescriptive)
+      );
+
+      const needsCodingVal = hasCoding && attemptedCoding && !isCodingValidated;
+      const needsDescriptiveVal = hasDescriptive && attemptedDescriptive && !isDescriptiveValidated;
+
+      if (needsCodingVal) pendingCodingCount++;
+      if (needsDescriptiveVal) pendingDescriptiveCount++;
+      
+      if (needsCodingVal || needsDescriptiveVal) {
+        pendingAnyCount++;
+      } else {
+        validationCompletedCount++;
+      }
+    });
+
+    return {
+      completedCount,
+      validationCompletedCount,
+      pendingCodingCount,
+      pendingDescriptiveCount,
+      pendingAnyCount
+    };
+  }, [candidates]);
+
+  const [sortBy, setSortBy] = useState('top'); // top, bottom, name, recent
+  const [isSortOpen, setIsSortOpen] = useState(false);
+  const sortDropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(event.target)) {
+        setIsSortOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const sortedCandidates = useMemo(() => {
+    const list = [...filteredCandidates];
+    return list.sort((a, b) => {
+      if (sortBy === 'top') {
+        return safeNum(b.percentage) - safeNum(a.percentage);
+      }
+      if (sortBy === 'bottom') {
+        return safeNum(a.percentage) - safeNum(b.percentage);
+      }
+      if (sortBy === 'name') {
+        return (a.candidateName || '').localeCompare(b.candidateName || '');
+      }
+      if (sortBy === 'recent') {
+        const timeA = new Date(a.submittedAt || a.endTime || 0).getTime();
+        const timeB = new Date(b.submittedAt || b.endTime || 0).getTime();
+        return timeB - timeA;
+      }
+      return 0;
+    });
+  }, [filteredCandidates, sortBy]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (filterDropdownRef.current && !filterDropdownRef.current.contains(event.target)) {
+        setIsFilterOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (location.state?.expandMail && candidates.length > 0) {
+      const email = location.state.expandMail;
+      setExpandedMail(email);
+      
+      // Clear location state so that it doesn't keep scrolling/expanding on subsequent renders
+      window.history.replaceState({}, document.title);
+      
+      // Scroll to that candidate row!
+      setTimeout(() => {
+        const rowId = `candidate-row-${email.replace(/[@.]/g, '-')}`;
+        const rowElement = document.getElementById(rowId);
+        if (rowElement) {
+          rowElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Gentle flash effect
+          rowElement.classList.add('bg-blue-50/50');
+          setTimeout(() => {
+            rowElement.classList.remove('bg-blue-50/50');
+          }, 2000);
+        }
+      }, 300);
+    }
+  }, [location.state, candidates]);
 
   /* ── Loading State ── */
   if (loading) {
@@ -597,7 +874,7 @@ export default function ReportDetailPage() {
       </div>
 
       {/* ── Header ── */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center min-w-0">
           <div className="min-w-0">
             <h2 className="text-[22px] font-bold text-slate-900 tracking-tight truncate">
@@ -617,11 +894,11 @@ export default function ReportDetailPage() {
             </div>
           </div>
         </div>
-        <div className="flex items-center space-x-2.5">
+        <div className="flex items-center space-x-2.5 w-full sm:w-auto">
           <button
             onClick={() => { refresh(); refreshCandidates(); }}
             disabled={loading || candidatesLoading}
-            className="bg-[#0B4A99] text-white px-4 py-2 rounded-lg font-semibold text-xs hover:bg-[#083A78] transition-all flex items-center shadow-sm flex-shrink-0 cursor-pointer disabled:opacity-50"
+            className="bg-[#0B4A99] text-white px-4 py-2 rounded-lg font-semibold text-xs hover:bg-[#083A78] transition-all flex items-center justify-center shadow-sm flex-shrink-0 cursor-pointer disabled:opacity-50 w-full sm:w-auto"
           >
             <FiRefreshCw className={`w-3.5 h-3.5 mr-2 ${((loading || candidatesLoading)) ? 'animate-spin' : ''}`} />
             Refresh
@@ -672,6 +949,47 @@ export default function ReportDetailPage() {
           sub={`${totalWarnings} total warnings`}
         />
       </div>
+
+      {/* ── Evaluation Progress Row ── */}
+      {(reportsHasCoding || reportsHasDescriptive) && (
+        <div className="space-y-2.5 mb-6">
+          <h3 className="text-[12px] font-bold text-slate-600 tracking-wide uppercase">Manual Evaluation Summary</h3>
+          <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-${2 + (reportsHasCoding ? 1 : 0) + (reportsHasDescriptive ? 1 : 0)} gap-4`}>
+            <MetricCard
+              icon={<FiCheckCircle className="w-4 h-4" />}
+              iconBg="bg-emerald-50/70" iconColor="text-emerald-600"
+              label="Validation Completed"
+              value={`${validationStats.validationCompletedCount} / ${validationStats.completedCount}`}
+              sub="Candidates fully graded"
+            />
+            <MetricCard
+              icon={<FiAlertCircle className="w-4 h-4" />}
+              iconBg="bg-amber-50/70" iconColor="text-amber-600"
+              label="Pending Validation (Total)"
+              value={validationStats.pendingAnyCount}
+              sub="Needs manual evaluation"
+            />
+            {reportsHasCoding && (
+              <MetricCard
+                icon={<FiAlertCircle className="w-4 h-4" />}
+                iconBg="bg-blue-50/70" iconColor="text-[#0B4A99]"
+                label="Pending Coding Review"
+                value={validationStats.pendingCodingCount}
+                sub="Coding submissions"
+              />
+            )}
+            {reportsHasDescriptive && (
+              <MetricCard
+                icon={<FiAlertCircle className="w-4 h-4" />}
+                iconBg="bg-orange-50/70" iconColor="text-orange-600"
+                label="Pending Descriptive Review"
+                value={validationStats.pendingDescriptiveCount}
+                sub="Descriptive answers"
+              />
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Charts Row ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
@@ -909,8 +1227,8 @@ export default function ReportDetailPage() {
       </div>
 
       {/* ── Candidates Table ── */}
-      <div className="bg-white rounded-xl border border-slate-200/70 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+      <div className="bg-white rounded-xl border border-slate-200/70 shadow-sm">
+        <div className="px-5 py-4 border-b border-slate-100 flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center bg-slate-50/10">
           <div className="flex items-center space-x-2">
             <FiUser className="w-4 h-4 text-slate-400" />
             <h3 className="text-[14px] font-bold text-slate-800">Candidates</h3>
@@ -920,17 +1238,136 @@ export default function ReportDetailPage() {
               </span>
             )}
           </div>
-          <div className="flex items-center space-x-3">
-            <select
-              value={validationFilter}
-              onChange={(e) => setValidationFilter(e.target.value)}
-              className="bg-white border border-slate-200 rounded-lg text-[11px] font-bold px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-100 cursor-pointer text-slate-700"
-            >
-              <option value="all">All Candidates</option>
-              <option value="pending">Pending Coding Review</option>
-              <option value="pending_descriptive">Pending Descriptive Review</option>
-              <option value="validated">Validated / MCQ Only</option>
-            </select>
+          <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+            <input
+              type="text"
+              placeholder="Search candidate name or email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-white border border-slate-200 rounded-lg text-[11px] px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-100 text-slate-700 w-full sm:w-56"
+            />
+            <div className="relative w-full sm:w-auto" ref={filterDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setIsFilterOpen(prev => !prev)}
+                className={`flex items-center justify-between px-3 py-1.5 bg-white border rounded-lg text-[11px] font-bold shadow-xs transition-all ${
+                  isFilterOpen
+                    ? 'border-[#0B4A99] ring-2 ring-[#0B4A99]/15 shadow-sm'
+                    : 'border-slate-200 hover:border-slate-300'
+                } cursor-pointer text-slate-700 w-full sm:w-auto sm:min-w-[170px]`}
+              >
+                <span className="truncate text-slate-700 font-semibold">
+                  {validationFilter === 'all' && 'All Candidates'}
+                  {validationFilter === 'pending_any' && 'Pending Review (Any)'}
+                  {validationFilter === 'pending' && 'Pending Coding Review'}
+                  {validationFilter === 'pending_descriptive' && 'Pending Descriptive Review'}
+                  {validationFilter === 'validated' && 'Validated / Complete'}
+                </span>
+                <div className={`transition-transform duration-200 ${isFilterOpen ? 'rotate-180 text-[#0B4A99]' : 'text-slate-400'} flex-shrink-0 ml-2`}>
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </button>
+
+              {isFilterOpen && (
+                <div className="absolute right-0 top-full mt-1 z-[990] bg-white border border-slate-200 rounded-xl shadow-xl p-1.5 space-y-0.5 animate-fade-in w-full sm:w-[210px] flex flex-col">
+                  {[
+                    { val: 'all', label: 'All Candidates' },
+                    ...(reportsHasCoding || reportsHasDescriptive ? [{ val: 'pending_any', label: 'Pending Review (Any)' }] : []),
+                    ...(reportsHasCoding ? [{ val: 'pending', label: 'Pending Coding Review' }] : []),
+                    ...(reportsHasDescriptive ? [{ val: 'pending_descriptive', label: 'Pending Descriptive Review' }] : []),
+                    { val: 'validated', label: 'Validated / Complete' }
+                  ].map((opt) => {
+                    const isSelected = opt.val === validationFilter;
+                    return (
+                      <button
+                        key={opt.val}
+                        type="button"
+                        onClick={() => {
+                          setValidationFilter(opt.val);
+                          setIsFilterOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-left transition-all ${
+                          isSelected
+                            ? 'bg-blue-50/60 text-[#0B4A99] font-bold shadow-xs'
+                            : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                        }`}
+                      >
+                        <span className="truncate">{opt.label}</span>
+                        {isSelected && (
+                          <svg className="w-3 h-3 text-[#0B4A99] flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Sort Dropdown */}
+            <div className="relative w-full sm:w-auto" ref={sortDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setIsSortOpen(prev => !prev)}
+                className={`flex items-center justify-between px-3 py-1.5 bg-white border rounded-lg text-[11px] font-bold shadow-xs transition-all ${
+                  isSortOpen
+                    ? 'border-[#0B4A99] ring-2 ring-[#0B4A99]/15 shadow-sm'
+                    : 'border-slate-200 hover:border-slate-300'
+                } cursor-pointer text-slate-700 w-full sm:w-auto sm:min-w-[145px]`}
+              >
+                <span className="truncate text-slate-700 font-semibold flex items-center">
+                  <FiTrendingUp className="w-3.5 h-3.5 mr-1.5 text-slate-450" />
+                  {sortBy === 'top' && 'Highest Score'}
+                  {sortBy === 'bottom' && 'Lowest Score'}
+                  {sortBy === 'name' && 'Alphabetical: A-Z'}
+                  {sortBy === 'recent' && 'Most Recent'}
+                </span>
+                <div className={`transition-transform duration-200 ${isSortOpen ? 'rotate-180 text-[#0B4A99]' : 'text-slate-400'} flex-shrink-0 ml-2`}>
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </button>
+
+
+              {isSortOpen && (
+                <div className="absolute right-0 top-full mt-1 z-[990] bg-white border border-slate-200 rounded-xl shadow-xl p-1.5 space-y-0.5 animate-fade-in w-[180px] flex flex-col">
+                  {[
+                    { val: 'top', label: 'Highest Score' },
+                    { val: 'bottom', label: 'Lowest Score' },
+                    { val: 'name', label: 'Alphabetical: A-Z' },
+                    { val: 'recent', label: 'Most Recent' }
+                  ].map((opt) => {
+                    const isSelected = opt.val === sortBy;
+                    return (
+                      <button
+                        key={opt.val}
+                        type="button"
+                        onClick={() => {
+                          setSortBy(opt.val);
+                          setIsSortOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-left transition-all ${
+                          isSelected
+                            ? 'bg-blue-50/60 text-[#0B4A99] font-bold shadow-xs'
+                            : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                        }`}
+                      >
+                        <span className="truncate">{opt.label}</span>
+                        {isSelected && (
+                          <svg className="w-3.5 h-3.5 text-[#0B4A99] flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
             {!candidatesLoading && candidates.length > 0 && (
               <button
@@ -960,7 +1397,7 @@ export default function ReportDetailPage() {
         )}
 
         <div className="overflow-x-auto overflow-y-hidden scrollbar-thin">
-          <table className="w-full table-fixed min-w-full">
+          <table className="w-full table-fixed min-w-[1000px] lg:min-w-full">
             <thead>
               <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/20 whitespace-nowrap">
                 <th className="px-2 py-3 w-[3%] text-center"></th>
@@ -1007,49 +1444,18 @@ export default function ReportDetailPage() {
                 </tr>
               )}
 
-              {candidates.filter((c) => {
-                const codingSection = c.sectionWisePerformance?.find(
-                  (sec) => isCodingSection(sec)
-                );
-                const hasCoding = !!codingSection;
-                const attemptedCoding = codingSection && codingSection.questions?.some(q => q.studentAnswer && q.studentAnswer.trim() !== '');
+              {/* No matching filter results empty state */}
+              {!candidatesLoading && !candidatesError && candidates.length > 0 && sortedCandidates.length === 0 && (
+                <tr>
+                  <td colSpan={8 + (reportsHasCoding ? 1 : 0) + (reportsHasDescriptive ? 1 : 0)} className="px-5 py-12 text-center text-slate-400">
+                    <FiSearch className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                    <p className="text-sm font-semibold text-slate-500">No matching candidates found</p>
+                    <p className="text-xs text-slate-400 mt-1">Try adjusting your search query or filter options.</p>
+                  </td>
+                </tr>
+              )}
 
-                const isCodingValidated = !hasCoding || !!(
-                  c.codingValidated || 
-                  c.isCodingValidated || 
-                  codingSection?.validated || 
-                  codingSection?.isCodingValidated ||
-                  (codingSection && codingSection.score > 0) ||
-                  (codingSection && !attemptedCoding)
-                );
-
-                const descriptiveSection = c.sectionWisePerformance?.find(
-                  (sec) => isDescriptiveSection(sec)
-                );
-                const hasDescriptive = !!descriptiveSection;
-                const attemptedDescriptive = descriptiveSection && descriptiveSection.questions?.some(q => q.studentAnswer && q.studentAnswer.trim() !== '');
-
-                const isDescriptiveValidated = !hasDescriptive || !!(
-                  c.descriptiveValidated || 
-                  c.isDescriptiveValidated || 
-                  descriptiveSection?.validated || 
-                  descriptiveSection?.isDescriptiveValidated ||
-                  (descriptiveSection && descriptiveSection.score > 0) ||
-                  (descriptiveSection && !attemptedDescriptive)
-                );
-
-                if (validationFilter === 'pending') {
-                  return hasCoding && attemptedCoding && !isCodingValidated;
-                }
-                if (validationFilter === 'pending_descriptive') {
-                  return hasDescriptive && attemptedDescriptive && !isDescriptiveValidated;
-                }
-                if (validationFilter === 'validated') {
-                  return (!hasCoding || !attemptedCoding || isCodingValidated) && 
-                         (!hasDescriptive || !attemptedDescriptive || isDescriptiveValidated);
-                }
-                return true;
-              }).map((c) => {
+              {sortedCandidates.map((c) => {
                 const isExpanded = expandedMail === c.mailId;
                 const status = c.status || 'UNKNOWN';
                 const statusBadge = status === 'PASSED'
@@ -1091,6 +1497,7 @@ export default function ReportDetailPage() {
                 return (
                   <React.Fragment key={c.mailId}>
                     <tr
+                      id={`candidate-row-${c.mailId.replace(/[@.]/g, '-')}`}
                       onClick={() => toggleExpand(c.mailId)}
                       className="hover:bg-slate-50/50 group transition-colors cursor-pointer"
                     >
