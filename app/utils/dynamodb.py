@@ -1,4 +1,4 @@
-from functools import cached_property
+from functools import cached_property, lru_cache
 
 import boto3
 from boto3.resources.base import ServiceResource
@@ -37,5 +37,6 @@ class DynamoDBClient:
     def table_name(self, base_name: str) -> str:
         return f"{self.table_prefix}-{base_name}"
 
+    @lru_cache
     def get_table(self, base_name: str):
         return self.resource.Table(self.table_name(base_name))

@@ -9,7 +9,11 @@ from app.api.router import create_api_router
 from app.core.config import get_settings
 from app.core.handlers import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
-from app.dependencies.providers import get_section_service, get_test_service
+from app.dependencies.providers import (
+    get_question_bank_client,
+    get_section_service,
+    get_test_service,
+)
 
 configure_logging()
 logger = get_logger(__name__)
@@ -79,13 +83,16 @@ def handler(event, context):
     return mangum_handler(event, context)
 
 
-# Pre-initialize boto3 DynamoDB tables at Lambda container INIT phase (free AWS CPU)
+# Pre-initialize boto3 DynamoDB tables & Question Bank HTTPS pool at Lambda container INIT phase (free AWS CPU)
 try:
     _test_svc = get_test_service()
     _sec_svc = get_section_service()
+    _qb_client = get_question_bank_client()
     # Warm table descriptors & TCP connection pool during INIT phase
     _test_svc.repository.table.table_status
     if _sec_svc and hasattr(_sec_svc.repository, "table"):
         _sec_svc.repository.table.table_status
+    # Pre-warm Question Bank HTTPS connection pool & cache question sets list
+    _qb_client.list_question_sets()
 except Exception as e:
     logger.debug("Container init pre-warm notice: %s", e)
