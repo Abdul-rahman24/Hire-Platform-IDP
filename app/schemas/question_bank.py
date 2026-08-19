@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -18,26 +16,4 @@ class QuestionResponse(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
 
-class SectionQuestionMappingCreateRequest(BaseModel):
-    question_set_id: str = Field(alias="questionSetId", min_length=1)
-    question_ids: list[str] = Field(alias="questionIds", min_length=1)
 
-    model_config = ConfigDict(populate_by_name=True)
-
-
-class SectionQuestionMappingUpdateRequest(BaseModel):
-    question_set_id: str = Field(alias="questionSetId", min_length=1)
-    question_ids: list[str] = Field(alias="questionIds", min_length=1)
-
-    model_config = ConfigDict(populate_by_name=True)
-
-
-class SectionQuestionMappingResponse(BaseModel):
-    id: str
-    section_id: str = Field(alias="sectionId")
-    question_set_id: str = Field(alias="questionSetId")
-    question_ids: list[str] = Field(alias="questionIds")
-    created_at: datetime = Field(alias="createdAt")
-    updated_at: datetime = Field(alias="updatedAt")
-
-    model_config = ConfigDict(populate_by_name=True)
