@@ -41,7 +41,7 @@ export default function MainLayout({ children }) {
       {/* Main content container */}
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         <TopNav onMenuClick={() => setMobileSidebarOpen(true)} />
-        <main className="flex-1 overflow-y-auto px-4 lg:px-8 py-5 lg:py-7" style={{ scrollbarGutter: 'stable' }}>
+        <main className="flex-1 overflow-y-scroll px-4 lg:px-8 py-5 lg:py-7" style={{ scrollbarGutter: 'stable' }}>
           {children}
         </main>
       </div>

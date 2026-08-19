@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, Sector
@@ -19,9 +19,9 @@ const renderActiveShape = (props) => {
   // 2. Line coordinates (relative to center)
   const sx = cx + (outerRadius) * cos;
   const sy = cy + (outerRadius) * sin;
-  const mx = cx + (outerRadius + 10) * cos;
-  const my = cy + (outerRadius + 10) * sin;
-  const ex = mx + (cos >= 0 ? 1 : -1) * 12;
+  const mx = cx + (outerRadius + 8) * cos;
+  const my = cy + (outerRadius + 8) * sin;
+  const ex = mx + (cos >= 0 ? 1 : -1) * 10;
   const ey = my;
   const textAnchor = cos >= 0 ? 'start' : 'end';
 
@@ -30,7 +30,7 @@ const renderActiveShape = (props) => {
       initial={{ x: 0, y: 0, scale: 1 }}
       animate={{ x: cos * pushOut, y: sin * pushOut, scale: 1.05 }}
       transition={{ type: "tween", ease: "easeOut", duration: 0.35 }}
-      style={{ transformOrigin: `${cx}px ${cy}px` }}
+      style={{ transformOrigin: `${cx}px ${cy}px`, pointerEvents: 'none' }}
       className="drop-shadow-lg"
     >
       <Sector
@@ -59,7 +59,7 @@ const renderActiveShape = (props) => {
       />
       <motion.text 
         initial={{ opacity: 0, x: ex + (cos >= 0 ? -10 : 10) }}
-        animate={{ opacity: 1, x: ex + (cos >= 0 ? 1 : -1) * 6 }}
+        animate={{ opacity: 1, x: ex + (cos >= 0 ? 1 : -1) * 10 }}
         transition={{ delay: 0.15, duration: 0.3 }}
         y={ey - 3} textAnchor={textAnchor} fill="#1E293B" fontSize={11} fontWeight={800}
       >
@@ -67,7 +67,7 @@ const renderActiveShape = (props) => {
       </motion.text>
       <motion.text 
         initial={{ opacity: 0, x: ex + (cos >= 0 ? -10 : 10) }}
-        animate={{ opacity: 1, x: ex + (cos >= 0 ? 1 : -1) * 6 }}
+        animate={{ opacity: 1, x: ex + (cos >= 0 ? 1 : -1) * 10 }}
         transition={{ delay: 0.25, duration: 0.3 }}
         y={ey + 12} textAnchor={textAnchor} fill="#64748b" fontSize={10} fontWeight={600}
       >
@@ -156,7 +156,7 @@ export function DashboardDonutChart({ data, loading }) {
 
   if (loading) {
     return (
-      <div className="w-full h-[300px] bg-slate-50 animate-pulse rounded-xl flex items-center justify-center">
+      <div className="w-full h-[330px] bg-slate-50 animate-pulse rounded-xl flex items-center justify-center">
         <div className="text-slate-300 font-semibold text-sm">Loading Chart...</div>
       </div>
     );
@@ -164,7 +164,7 @@ export function DashboardDonutChart({ data, loading }) {
 
   if (!data || data.length === 0) {
     return (
-      <div className="w-full h-[300px] bg-slate-50 rounded-xl flex items-center justify-center border border-slate-100 dashed">
+      <div className="w-full h-[330px] bg-slate-50 rounded-xl flex items-center justify-center border border-slate-100 dashed">
         <div className="text-slate-400 font-semibold text-sm">No question set data available.</div>
       </div>
     );
@@ -179,7 +179,7 @@ export function DashboardDonutChart({ data, loading }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.6, delay: 0.2 }}
-      className="w-full h-[300px] cursor-pointer"
+      className="w-full h-[330px] cursor-pointer"
     >
       <ResponsiveContainer width="100%" height="100%">
         <PieChart style={{ overflow: 'visible' }}>
@@ -188,9 +188,9 @@ export function DashboardDonutChart({ data, loading }) {
             activeShape={renderActiveShape}
             data={data}
             cx="50%"
-            cy="45%"
-            innerRadius="35%"
-            outerRadius="50%"
+            cy="40%"
+            innerRadius="30%"
+            outerRadius="44%"
             paddingAngle={5}
             dataKey="value"
             stroke="none"
@@ -200,6 +200,7 @@ export function DashboardDonutChart({ data, loading }) {
               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} className="transition-all duration-300 outline-none" />
             ))}
           </Pie>
+
           <Legend 
             verticalAlign="bottom" 
             height={40} 
@@ -215,7 +216,7 @@ export function DashboardDonutChart({ data, loading }) {
 export function DashboardFunnelChart({ data, loading }) {
   if (loading) {
     return (
-      <div className="w-full h-[300px] bg-slate-50 animate-pulse rounded-xl flex items-center justify-center">
+      <div className="w-full h-[330px] bg-slate-50 animate-pulse rounded-xl flex items-center justify-center">
         <div className="text-slate-300 font-semibold text-sm">Loading Chart...</div>
       </div>
     );
@@ -223,7 +224,7 @@ export function DashboardFunnelChart({ data, loading }) {
 
   if (!data || data.length === 0 || data.every(d => d.value === 0)) {
     return (
-      <div className="w-full h-[300px] bg-slate-50 rounded-xl flex items-center justify-center border border-slate-100 dashed">
+      <div className="w-full h-[330px] bg-slate-50 rounded-xl flex items-center justify-center border border-slate-100 dashed">
         <div className="text-slate-400 font-semibold text-sm">No funnel data available.</div>
       </div>
     );
@@ -234,7 +235,7 @@ export function DashboardFunnelChart({ data, loading }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.6 }}
-      className="w-full h-[300px] relative cursor-pointer"
+      className="w-full h-[330px] relative cursor-pointer"
     >
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
@@ -275,7 +276,7 @@ export function DashboardFunnelChart({ data, loading }) {
           <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 600, color: '#475569' }} />
           <Bar dataKey="attended" name="Attended" fill="#0B4A99" radius={[4, 4, 0, 0]} />
           <Bar dataKey="completed" name="Completed" fill="#10B981" radius={[4, 4, 0, 0]} />
-          <Bar dataKey="terminated" name="Terminated" fill="#EF4444" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="totalTerminated" name="Terminated" fill="#EF4444" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </motion.div>

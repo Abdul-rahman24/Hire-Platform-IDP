@@ -11,6 +11,8 @@ function SkeletonRow() {
       <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-40" /></td>
       <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-16" /></td>
       <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-16" /></td>
+      <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-16" /></td>
+      <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-16" /></td>
       <td className="px-5 py-4"><div className="h-4 bg-slate-100 rounded-md w-14" /></td>
     </tr>
   );
@@ -56,11 +58,18 @@ export default function ReportsListPage() {
   const navigate = useNavigate();
   const { data: reports, loading, error, refresh } = useReportsData(fetchAllReports);
 
-  const list = Array.isArray(reports) ? reports : [];
+  const list = React.useMemo(() => {
+    const rawList = Array.isArray(reports) ? [...reports] : [];
+    return rawList.sort((a, b) => {
+      const timeA = new Date(a.lastUpdated || a.generatedAt || 0).getTime();
+      const timeB = new Date(b.lastUpdated || b.generatedAt || 0).getTime();
+      return timeB - timeA;
+    });
+  }, [reports]);
 
   /* ── Aggregate metrics (unweighted cross-test averages) ── */
   const totalTests = list.length;
-  const totalCompleted = list.reduce((s, r) => s + safeNum(r.completedCandidates), 0);
+  const totalCompleted = list.reduce((s, r) => s + safeNum(r.totalCompleted ?? r.completedCandidates), 0);
 
   // Unweighted: average of each test's passPercentage, NOT overall candidate-level pass rate
   const avgPassRate = totalTests > 0
@@ -154,8 +163,10 @@ export default function ReportsListPage() {
           <table className="w-full text-left min-w-[700px]">
             <thead>
               <tr className="border-b border-slate-100 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/20">
-                <th className="px-5 py-3 w-[45%]">Test Name</th>
+                <th className="px-5 py-3 w-[35%]">Test Name</th>
+                <th className="px-5 py-3">Attended</th>
                 <th className="px-5 py-3">Completed</th>
+                <th className="px-5 py-3">Terminated</th>
                 <th className="px-5 py-3">Avg Score</th>
                 <th className="px-5 py-3">Pass Rate</th>
               </tr>
@@ -174,7 +185,7 @@ export default function ReportsListPage() {
               {/* Empty state */}
               {!loading && !error && list.length === 0 && (
                 <tr>
-                  <td colSpan="4" className="px-5 py-16 text-center">
+                  <td colSpan="6" className="px-5 py-16 text-center">
                     <FiInbox className="w-10 h-10 text-slate-300 mx-auto mb-3" />
                     <p className="text-sm font-semibold text-slate-500">No test reports yet</p>
                     <p className="text-xs text-slate-400 mt-1">Reports will appear here once tests have been conducted.</p>
@@ -183,53 +194,64 @@ export default function ReportsListPage() {
               )}
 
               {/* Data rows */}
-              {list.map((report) => (
-                <tr
-                  key={report.testId}
-                  onClick={() => navigate(`/reports/${report.testId}`)}
-                  className="hover:bg-slate-50/50 group transition-colors cursor-pointer"
-                >
-                  <td className="px-5 py-4">
-                    <div className="flex items-center">
-                      <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#0B4A99] flex items-center justify-center mr-3 flex-shrink-0">
-                        <FiBarChart2 className="w-4 h-4" />
+              {list.map((report) => {
+                const completed = safeNum(report.totalCompleted ?? report.completedCandidates);
+                const attended = Math.max(safeNum(report.totalCandidates), completed);
+                const terminated = safeNum(report.totalTerminated);
+                return (
+                  <tr
+                    key={report.testId}
+                    onClick={() => navigate(`/reports/${report.testId}`)}
+                    className="hover:bg-slate-50/50 group transition-colors cursor-pointer"
+                  >
+                    <td className="px-5 py-4">
+                      <div className="flex items-center">
+                        <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#0B4A99] flex items-center justify-center mr-3 flex-shrink-0">
+                          <FiBarChart2 className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="font-semibold text-slate-800 text-xs group-hover:text-[#0B4A99] transition-colors truncate">
+                            {report.testName || 'Unnamed Test'}
+                          </h4>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <h4 className="font-semibold text-slate-800 text-xs group-hover:text-[#0B4A99] transition-colors truncate">
-                          {report.testName || 'Unnamed Test'}
-                        </h4>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="font-bold text-slate-800 text-xs">{safeNum(report.completedCandidates)}</span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <span className="font-bold text-slate-800 text-xs">{safeNum(report.averageScore)}</span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <div className="flex items-center">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                        safeNum(report.passPercentage) >= 70
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                          : safeNum(report.passPercentage) >= 40
-                          ? 'bg-amber-50 text-amber-700 border-amber-100'
-                          : 'bg-red-50 text-red-700 border-red-100'
-                      }`}>
-                        <span className={`w-1 h-1 rounded-full mr-1.5 ${
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="font-bold text-slate-800 text-xs">{attended}</span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="font-bold text-slate-800 text-xs">{completed}</span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="font-bold text-slate-800 text-xs">{terminated}</span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className="font-bold text-slate-800 text-xs">{safeNum(report.averageScore)}</span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex items-center">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
                           safeNum(report.passPercentage) >= 70
-                            ? 'bg-emerald-500'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
                             : safeNum(report.passPercentage) >= 40
-                            ? 'bg-amber-500'
-                            : 'bg-red-500'
-                        }`} />
-                        {safePct(report.passPercentage)}
-                      </span>
-                      <FiArrowRight className="w-3.5 h-3.5 text-slate-300 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                            ? 'bg-amber-50 text-amber-700 border-amber-100'
+                            : 'bg-red-50 text-red-700 border-red-100'
+                        }`}>
+                          <span className={`w-1 h-1 rounded-full mr-1.5 ${
+                            safeNum(report.passPercentage) >= 70
+                              ? 'bg-emerald-500'
+                              : safeNum(report.passPercentage) >= 40
+                              ? 'bg-amber-500'
+                              : 'bg-red-500'
+                          }`} />
+                          {safePct(report.passPercentage)}
+                        </span>
+                        <FiArrowRight className="w-3.5 h-3.5 text-slate-300 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

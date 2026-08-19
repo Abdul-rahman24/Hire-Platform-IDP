@@ -58,7 +58,7 @@ export function useDashboardData() {
       const insights = [];
 
       reports.forEach((report) => {
-        const completed = safeNum(report.completedCandidates);
+        const completed = safeNum(report.totalCompleted ?? report.completedCandidates);
         
         totalCompleted += completed;
         totalPassPercentage += safeNum(report.passPercentage);
@@ -120,11 +120,12 @@ export function useDashboardData() {
           inactiveTests++;
           // Add insight for inactive tests that have completions
           const relatedReport = reports.find(r => String(r.testId) === String(test.testId || test.id));
-          if (relatedReport && safeNum(relatedReport.completedCandidates) > 0) {
+          const completedCount = relatedReport ? safeNum(relatedReport.totalCompleted ?? relatedReport.completedCandidates) : 0;
+          if (relatedReport && completedCount > 0) {
             insights.push({
               type: 'info',
               title: 'Inactive Test Activity',
-              message: `${test.testName || 'A test'} is inactive but has ${safeNum(relatedReport.completedCandidates)} completed evaluations.`,
+              message: `${test.testName || 'A test'} is inactive but has ${completedCount} completed evaluations.`,
               testId: test.testId || test.id
             });
           }
@@ -166,15 +167,15 @@ export function useDashboardData() {
         .slice(0, 5);
 
       const funnelData = recentReportsForFunnel.map(report => {
-        const completed = safeNum(report.completedCandidates);
+        const completed = safeNum(report.totalCompleted ?? report.completedCandidates);
         const attended = Math.max(safeNum(report.totalCandidates), completed);
-        const terminated = Math.max(0, attended - completed);
+        const totalTerminated = safeNum(report.totalTerminated);
         
         return {
           testName: report.testName || 'Unnamed Test',
           attended,
           completed,
-          terminated
+          totalTerminated
         };
       });
 

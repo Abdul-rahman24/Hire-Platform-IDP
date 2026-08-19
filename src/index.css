@@ -39,3 +39,30 @@
     background: #cbd5e1; /* slate-300 */
   }
 }
+
+/* Disable default Recharts focus outlines when clicking chart elements */
+.recharts-sector,
+.recharts-sector:focus,
+.recharts-cell,
+.recharts-cell:focus,
+.recharts-bar-rect,
+.recharts-bar-rect:focus,
+.recharts-legend-item,
+.recharts-legend-item:focus,
+path:focus,
+circle:focus,
+text:focus,
+svg:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Hide default browser up/down spinner arrows on number inputs */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] {
+  -moz-appearance: textfield;
+}

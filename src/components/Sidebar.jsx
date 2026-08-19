@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { FiDatabase, FiFileText, FiBarChart2, FiLogOut, FiPieChart } from 'react-icons/fi';
 
@@ -26,6 +26,7 @@ const NAV_ITEMS = [
 ];
 
 export default function Sidebar({ onNavItemClick }) {
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const location = useLocation();
   const isActive = (path) => location.pathname.startsWith(path);
 
@@ -81,12 +82,7 @@ export default function Sidebar({ onNavItemClick }) {
       {/* User Footer */}
       <div className="flex-shrink-0 border-t border-slate-100 p-3">
         <div
-          onClick={() => {
-            localStorage.removeItem('idp_admin_auth');
-            localStorage.removeItem('idp_access_token');
-            localStorage.removeItem('idp_id_token');
-            window.location.href = '/login';
-          }}
+          onClick={() => setShowLogoutConfirm(true)}
           className="flex items-center p-2 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
           title="Sign Out"
         >
@@ -100,6 +96,38 @@ export default function Sidebar({ onNavItemClick }) {
           <FiLogOut className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
         </div>
       </div>
+
+      {/* Logout Confirmation Modal Overlay */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/45 backdrop-blur-xs">
+          <div className="bg-white border border-slate-100 rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center mx-auto mb-4 border border-red-100/50">
+              <FiLogOut className="w-5 h-5" />
+            </div>
+            <h4 className="text-[15px] font-bold text-slate-800">Confirm Logout</h4>
+            <p className="text-xs text-slate-500 mt-2 font-medium">Are you sure you want to log out of the admin portal?</p>
+            <div className="flex items-center justify-center space-x-3 mt-6">
+              <button 
+                onClick={() => setShowLogoutConfirm(false)}
+                className="px-4 py-2 text-xs font-bold text-slate-500 bg-slate-50 hover:bg-slate-100/70 border border-slate-200/40 rounded-xl transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => {
+                  localStorage.removeItem('idp_admin_auth');
+                  localStorage.removeItem('idp_access_token');
+                  localStorage.removeItem('idp_id_token');
+                  window.location.href = '/login';
+                }}
+                className="px-4 py-2 text-xs font-bold text-white bg-red-500 hover:bg-red-600 rounded-xl shadow-md shadow-red-900/10 transition-colors cursor-pointer"
+              >
+                Log Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

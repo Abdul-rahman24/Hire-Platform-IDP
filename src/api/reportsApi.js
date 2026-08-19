@@ -36,6 +36,17 @@ export async function fetchTestReport(testId) {
 }
 
 /**
+ * DELETE /reports/tests/{testId}
+ * Delete a single test report.
+ */
+export async function deleteTestReport(testId) {
+  const res = await fetch(`${API_BASE}/reports/tests/${encodeURIComponent(testId)}`, {
+    method: 'DELETE'
+  });
+  return unwrap(res);
+}
+
+/**
  * GET /reports/tests/{testId}/candidates
  * Fetch ALL candidate reports for a given test.
  */
@@ -53,5 +64,43 @@ export async function fetchCandidateReport(testId, mailId) {
     `${API_BASE}/reports/tests/${encodeURIComponent(testId)}/candidates/${encodeURIComponent(mailId)}?_=${Date.now()}`,
     { cache: 'no-store' }
   );
+  return unwrap(res);
+}
+
+/**
+ * GET /rankings/{testId}
+ * Fetch candidate rankings in a sorted/ranked way.
+ */
+export async function fetchCandidateRankings(testId) {
+  const res = await fetch(`${API_BASE}/rankings/${encodeURIComponent(testId)}?_=${Date.now()}`, { cache: 'no-store' });
+  return unwrap(res);
+}
+
+/**
+ * GET /rankings/{testId}/shortlisted
+ * Fetch only shortlisted candidates.
+ */
+export async function fetchShortlistedCandidates(testId) {
+  const res = await fetch(`${API_BASE}/rankings/${encodeURIComponent(testId)}/shortlisted?_=${Date.now()}`, { cache: 'no-store' });
+  return unwrap(res);
+}
+
+/**
+ * POST /rankings/{testId}/generate
+ * Generate or regenerate the ranking and shortlist using thresholds.
+ */
+export async function generateRankings(testId, { topN, minimumPercentage, maximumWarnings, passedOnly }) {
+  const res = await fetch(`${API_BASE}/rankings/${encodeURIComponent(testId)}/generate`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      topN: Number(topN),
+      minimumPercentage: Number(minimumPercentage),
+      maximumWarnings: Number(maximumWarnings),
+      passedOnly: Boolean(passedOnly),
+    }),
+  });
   return unwrap(res);
 }

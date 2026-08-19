@@ -3,12 +3,13 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   FiArrowLeft, FiRefreshCw, FiAlertCircle, FiCheckCircle,
   FiAward, FiTrendingUp, FiClock, FiAlertTriangle,
-  FiInfo, FiX, FiUser, FiChevronDown, FiChevronUp, FiMail, FiDownload, FiSearch
+  FiInfo, FiX, FiUser, FiUsers, FiChevronDown, FiChevronUp, FiMail, FiDownload, FiSearch, FiTrash2
 } from 'react-icons/fi';
-import { fetchTestReport, fetchTestCandidates, API_BASE } from '../api/reportsApi';
+import { fetchTestReport, fetchTestCandidates, fetchCandidateRankings, fetchShortlistedCandidates, generateRankings, deleteTestReport, API_BASE } from '../api/reportsApi';
 import { useReportsData } from '../hooks/useReportsData';
 import { motion, AnimatePresence } from 'framer-motion';
 import ExcelJS from 'exceljs';
+import { StatMini } from '../components/tc/Shared';
 import { useToast } from '../components/tc/Toast';
 
 /* ── Safe helpers ── */
@@ -56,37 +57,7 @@ function AnomalyBanner({ icon, children, onDismiss }) {
   );
 }
 
-/* ── Metric Card ── */
-function MetricCard({ icon, iconBg, iconColor, label, value, sub, loading }) {
-  if (loading) {
-    return (
-      <div className="bg-white p-4.5 rounded-xl border border-slate-200/60 shadow-sm flex flex-col justify-between h-[115px] animate-pulse">
-        <div className="flex justify-between items-center">
-          <div className="w-8 h-8 bg-slate-100 rounded-lg" />
-          <div className="h-2.5 w-20 bg-slate-100 rounded" />
-        </div>
-        <div className="mt-2 space-y-1.5">
-          <div className="h-6 w-14 bg-slate-100 rounded" />
-          <div className="h-2.5 w-24 bg-slate-100 rounded" />
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className="bg-white p-4.5 rounded-xl border border-slate-200/60 shadow-sm flex flex-col justify-between h-[115px]">
-      <div className="flex justify-between items-center">
-        <div className={`w-8 h-8 ${iconBg} ${iconColor} rounded-lg flex items-center justify-center`}>
-          {icon}
-        </div>
-        <span className="text-[10px] font-semibold text-slate-400 text-right max-w-[55%] leading-tight">{sub}</span>
-      </div>
-      <div className="mt-2">
-        <h3 className="text-xl font-bold text-slate-950 tracking-tight leading-none">{value}</h3>
-        <p className="text-slate-400 text-[10px] font-medium mt-1">{label}</p>
-      </div>
-    </div>
-  );
-}
+
 
 /* ── Candidate Detail Card (expanded view) ── */
 function CandidateDetail({ c, testId }) {
@@ -428,8 +399,82 @@ export default function ReportDetailPage() {
     10000
   );
 
-  const totalPages = candidatesRaw?.totalPages || 1;
-  const totalReportsCount = candidatesRaw?.totalReports || 0;
+  const [viewTab, setViewTab] = useState('all'); // 'all', 'shortlisted'
+  const [shortlistedData, setShortlistedData] = useState(null);
+  const [rankingsLoading, setRankingsLoading] = useState(false);
+
+  const [topN, setTopN] = useState(10);
+  const [minPct, setMinPct] = useState(60);
+  const [maxWarnings, setMaxWarnings] = useState(3);
+  const [passedOnly, setPassedOnly] = useState(true);
+  const [generating, setGenerating] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState('');
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteReport = async () => {
+    const expectedName = (report?.testName || 'Unnamed Test').trim();
+    if (deleteConfirmInput.trim() !== expectedName) {
+      return;
+    }
+    try {
+      setDeleting(true);
+      await deleteTestReport(testId);
+      toast && toast({ type: 'success', title: 'Report Deleted', message: 'The test report has been successfully deleted.' });
+      setShowDeleteConfirm(false);
+      navigate('/reports');
+    } catch (err) {
+      console.error('Failed to delete report:', err);
+      toast && toast({ type: 'error', title: 'Delete Failed', message: err.message || 'Could not delete the test report.' });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const loadRankings = async () => {
+    try {
+      setRankingsLoading(true);
+      const shortlisted = await fetchShortlistedCandidates(testId).catch(() => []);
+      setShortlistedData(shortlisted);
+    } catch (err) {
+      console.error('Failed to load rankings:', err);
+    } finally {
+      setRankingsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadRankings();
+  }, [testId]);
+
+  const handleGenerateShortlist = async () => {
+    try {
+      setGenerating(true);
+      await generateRankings(testId, {
+        topN,
+        minimumPercentage: minPct,
+        maximumWarnings: maxWarnings,
+        passedOnly
+      });
+      toast && toast({
+        type: 'success',
+        title: 'Shortlist Generated',
+        message: 'Ranking list successfully generated with current thresholds.'
+      });
+      await loadRankings();
+      setViewTab('shortlisted');
+      setCurrentPage(1);
+    } catch (err) {
+      toast && toast({
+        type: 'error',
+        title: 'Generation Failed',
+        message: err.message || 'Unable to generate shortlist.'
+      });
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const candidates = useMemo(() => {
     const rawList = candidatesRaw?.reports || (Array.isArray(candidatesRaw) ? candidatesRaw : []);
@@ -440,6 +485,16 @@ export default function ReportDetailPage() {
     const rawList = allCandidatesRaw?.reports || (Array.isArray(allCandidatesRaw) ? allCandidatesRaw : []);
     return normalizeCandidatesData(rawList);
   }, [allCandidatesRaw]);
+
+  const shortlistedCandidates = useMemo(() => {
+    const rawList = shortlistedData?.reports || (Array.isArray(shortlistedData) ? shortlistedData : []);
+    return normalizeCandidatesData(rawList);
+  }, [shortlistedData]);
+
+  const activeCandidates = useMemo(() => {
+    if (viewTab === 'shortlisted') return shortlistedCandidates;
+    return allCandidates;
+  }, [viewTab, allCandidates, shortlistedCandidates]);
 
   // Dismissable banner state
   const [dismissed, setDismissed] = useState({});
@@ -458,7 +513,7 @@ export default function ReportDetailPage() {
   const filterDropdownRef = useRef(null);
 
   const filteredCandidates = useMemo(() => {
-    return candidates.filter((c) => {
+    return activeCandidates.filter((c) => {
       // 1. Search filter
       if (searchQuery.trim() !== '') {
         const q = searchQuery.toLowerCase().trim();
@@ -521,7 +576,10 @@ export default function ReportDetailPage() {
       }
       return true;
     });
-  }, [candidates, searchQuery, validationFilter]);
+  }, [activeCandidates, searchQuery, validationFilter]);
+
+  const totalReportsCount = filteredCandidates.length;
+  const totalPages = Math.max(1, Math.ceil(totalReportsCount / itemsPerPage));
 
   const validationStats = useMemo(() => {
     let completedCount = 0;
@@ -605,7 +663,7 @@ export default function ReportDetailPage() {
 
   const sortedCandidates = useMemo(() => {
     const list = [...filteredCandidates];
-    return list.sort((a, b) => {
+    list.sort((a, b) => {
       if (sortBy === 'top') {
         return safeNum(b.percentage) - safeNum(a.percentage);
       }
@@ -622,7 +680,9 @@ export default function ReportDetailPage() {
       }
       return 0;
     });
-  }, [filteredCandidates, sortBy]);
+
+    return list.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  }, [filteredCandidates, sortBy, currentPage, itemsPerPage]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -679,7 +739,7 @@ export default function ReportDetailPage() {
   }, [location.state, candidates]);
 
   /* ── Loading State ── */
-  if (loading) {
+  if (loading || allCandidatesLoading) {
     return (
       <div className="w-full space-y-5">
         <div className="flex items-center mb-6">
@@ -687,10 +747,7 @@ export default function ReportDetailPage() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
           {[...Array(5)].map((_, i) => (
-            <div key={i} className="bg-white p-4.5 rounded-xl border border-slate-200/60 shadow-sm h-[115px] animate-pulse">
-              <div className="w-8 h-8 bg-slate-100 rounded-lg mb-4" />
-              <div className="h-5 bg-slate-100 rounded-md w-16" />
-            </div>
+            <StatMini key={i} loading={true} />
           ))}
         </div>
         <div className="bg-white rounded-xl border border-slate-200/60 shadow-sm h-[180px] animate-pulse" />
@@ -726,7 +783,7 @@ export default function ReportDetailPage() {
   if (!report) return null;
 
   /* ── Derived values ── */
-  const completed = safeNum(report.completedCandidates);
+  const completed = safeNum(report.totalCompleted ?? report.completedCandidates);
   const rawTotal = safeNum(report.totalCandidates);
   // totalCandidates may be 0 when the backend doesn't track registrations;
   // use the larger of totalCandidates and completedCandidates as effective total
@@ -747,6 +804,7 @@ export default function ReportDetailPage() {
 
   const handleDownloadCandidatesExcel = async () => {
     if (!report) return;
+    setExportingExcel(true);
     try {
       const response = await fetch(`${API_BASE}/reports/tests/${encodeURIComponent(testId)}/excel`);
       if (!response.ok) {
@@ -759,6 +817,28 @@ export default function ReportDetailPage() {
       // Format Sheet 1: Candidate Reports
       const ws = workbook.getWorksheet(1) || workbook.worksheets[0];
       if (ws) {
+        // Filter rows if we are in 'shortlisted' view tab (only export shortlisted candidates)
+        if (viewTab === 'shortlisted') {
+          const shortlistedEmails = new Set(
+            shortlistedCandidates.map(c => (c.mailId || '').toLowerCase().trim())
+          );
+
+          const lastRowVal = ws.lastRow ? ws.lastRow.number : 1;
+          for (let r = lastRowVal; r >= 2; r--) {
+            const row = ws.getRow(r);
+            let match = false;
+            row.eachCell((cell) => {
+              const val = String(cell.value || '').toLowerCase().trim();
+              if (shortlistedEmails.has(val)) {
+                match = true;
+              }
+            });
+            if (!match) {
+              ws.spliceRows(r, 1);
+            }
+          }
+        }
+
         ws.views = [{ showGridLines: true }];
 
         // Style header row (Row 1)
@@ -875,6 +955,8 @@ export default function ReportDetailPage() {
     } catch (err) {
       console.error('Failed to export candidates details:', err);
       toast && toast({ type: 'error', title: 'Export Failed', message: err.message || 'Could not download Excel report.' });
+    } finally {
+      setExportingExcel(false);
     }
   };
 
@@ -951,55 +1033,55 @@ export default function ReportDetailPage() {
           <button
             onClick={() => { refresh(); refreshCandidates(); }}
             disabled={loading || candidatesLoading}
-            className="bg-[#0B4A99] text-white px-4 py-2 rounded-lg font-semibold text-xs hover:bg-[#083A78] transition-all flex items-center justify-center shadow-sm flex-shrink-0 cursor-pointer disabled:opacity-50 w-full sm:w-auto"
+            className="bg-white text-slate-700 border border-slate-200 px-4 py-2 rounded-lg font-semibold text-xs hover:bg-slate-50 transition-all flex items-center justify-center shadow-sm flex-shrink-0 cursor-pointer disabled:opacity-50 w-full sm:w-auto"
           >
             <FiRefreshCw className={`w-3.5 h-3.5 mr-2 ${((loading || candidatesLoading)) ? 'animate-spin' : ''}`} />
             Refresh
           </button>
+          <button
+            onClick={() => {
+              setDeleteConfirmInput('');
+              setShowDeleteConfirm(true);
+            }}
+            className="bg-red-50 hover:bg-red-600 text-red-600 hover:text-white border border-red-200/50 hover:border-transparent px-4 py-2 rounded-lg font-semibold text-xs transition-all duration-200 flex items-center justify-center shadow-sm flex-shrink-0 cursor-pointer w-full sm:w-auto"
+          >
+            <FiTrash2 className="w-3.5 h-3.5 mr-2" />
+            Delete Report
+          </button>
         </div>
       </div>
 
-      {/* ── Anomaly Banners ── */}
-      {anomalies
-        .filter((a) => !dismissed[a.key])
-        .map((a) => (
-          <AnomalyBanner key={a.key} icon={a.icon} onDismiss={() => dismiss(a.key)}>
-            {a.text}
-          </AnomalyBanner>
-        ))}
-
       {/* ── Summary Cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-        <MetricCard
+        <StatMini
           icon={<FiCheckCircle className="w-4 h-4" />}
-          iconBg="bg-blue-50" iconColor="text-[#0B4A99]"
           label="Completion Rate"
           value={rawTotal > 0 ? `${completionRate.toFixed(1)}%` : '100%'}
-          sub={rawTotal > 0 ? `${completed} of ${rawTotal} candidates` : `${completed} completed candidates`}
+          color="blue"
         />
-        <MetricCard
+        <StatMini
           icon={<FiAward className="w-4 h-4" />}
-          iconBg="bg-emerald-50" iconColor="text-emerald-600"
-          label="Pass Rate" value={fmtPct(passPercentage)}
-          sub={`${passed} passed · ${failed} failed`}
+          label="Pass Rate"
+          value={fmtPct(passPercentage)}
+          color="green"
         />
-        <MetricCard
+        <StatMini
           icon={<FiTrendingUp className="w-4 h-4" />}
-          iconBg="bg-indigo-50" iconColor="text-indigo-600"
-          label="Average Score" value={avgScore}
-          sub={totalMarks != null ? `of ${totalMarks} · Range: ${lowest}–${highest}` : `Range: ${lowest} – ${highest}`}
+          label="Average Score"
+          value={avgScore}
+          color="indigo"
         />
-        <MetricCard
+        <StatMini
           icon={<FiClock className="w-4 h-4" />}
-          iconBg="bg-amber-50" iconColor="text-amber-600"
-          label="Avg Time Taken" value={fmtTime(avgTime)}
-          sub={durationMins != null ? `of ${durationMins}m allowed` : 'Per candidate'}
+          label="Avg Time Taken"
+          value={fmtTime(avgTime)}
+          color="amber"
         />
-        <MetricCard
+        <StatMini
           icon={<FiAlertTriangle className="w-4 h-4" />}
-          iconBg="bg-rose-50" iconColor="text-rose-500"
-          label="Avg Warnings" value={avgWarnings.toFixed(1)}
-          sub={`${totalWarnings} total warnings`}
+          label="Avg Warnings"
+          value={avgWarnings.toFixed(1)}
+          color="rose"
         />
       </div>
 
@@ -1008,37 +1090,52 @@ export default function ReportDetailPage() {
         <div className="space-y-2.5 mb-6">
           <h3 className="text-[12px] font-bold text-slate-600 tracking-wide uppercase">Manual Evaluation Summary</h3>
           <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-${2 + (reportsHasCoding ? 1 : 0) + (reportsHasDescriptive ? 1 : 0)} gap-4`}>
-            <MetricCard
-              icon={<FiCheckCircle className="w-4 h-4" />}
-              iconBg="bg-emerald-50/70" iconColor="text-emerald-600"
-              label="Validation Completed"
-              value={`${validationStats.validationCompletedCount} / ${validationStats.completedCount}`}
-              sub="Candidates fully graded"
-            />
-            <MetricCard
-              icon={<FiAlertCircle className="w-4 h-4" />}
-              iconBg="bg-amber-50/70" iconColor="text-amber-600"
-              label="Pending Validation (Total)"
-              value={validationStats.pendingAnyCount}
-              sub="Needs manual evaluation"
-            />
-            {reportsHasCoding && (
-              <MetricCard
-                icon={<FiAlertCircle className="w-4 h-4" />}
-                iconBg="bg-blue-50/70" iconColor="text-[#0B4A99]"
-                label="Pending Coding Review"
-                value={validationStats.pendingCodingCount}
-                sub="Coding submissions"
+            {allCandidatesLoading ? (
+              <StatMini loading={true} />
+            ) : (
+              <StatMini
+                icon={<FiCheckCircle className="w-4 h-4" />}
+                label="Validation Completed"
+                value={`${validationStats.validationCompletedCount} / ${validationStats.completedCount}`}
+                color="green"
               />
             )}
-            {reportsHasDescriptive && (
-              <MetricCard
+
+            {allCandidatesLoading ? (
+              <StatMini loading={true} />
+            ) : (
+              <StatMini
                 icon={<FiAlertCircle className="w-4 h-4" />}
-                iconBg="bg-orange-50/70" iconColor="text-orange-600"
-                label="Pending Descriptive Review"
-                value={validationStats.pendingDescriptiveCount}
-                sub="Descriptive answers"
+                label="Pending Validation (Total)"
+                value={validationStats.pendingAnyCount}
+                color="amber"
               />
+            )}
+
+            {reportsHasCoding && (
+              allCandidatesLoading ? (
+                <StatMini loading={true} />
+              ) : (
+                <StatMini
+                  icon={<FiAlertCircle className="w-4 h-4" />}
+                  label="Pending Coding Review"
+                  value={validationStats.pendingCodingCount}
+                  color="blue"
+                />
+              )
+            )}
+
+            {reportsHasDescriptive && (
+              allCandidatesLoading ? (
+                <StatMini loading={true} />
+              ) : (
+                <StatMini
+                  icon={<FiAlertCircle className="w-4 h-4" />}
+                  label="Pending Descriptive Review"
+                  value={validationStats.pendingDescriptiveCount}
+                  color="orange"
+                />
+              )
             )}
           </div>
         </div>
@@ -1092,7 +1189,7 @@ export default function ReportDetailPage() {
                   {/* Center label */}
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <span className="text-2xl font-bold text-slate-900">{fmtPct(passPercentage)}</span>
-                    <span className="text-[10px] text-slate-400 font-medium">Pass Rate</span>
+                    <span className="text-xs text-slate-500 font-semibold">Pass Rate</span>
                   </div>
                 </div>
 
@@ -1104,8 +1201,8 @@ export default function ReportDetailPage() {
                       <div key={i} className="flex items-center">
                         <span className="w-3 h-3 rounded-sm flex-shrink-0 mr-2.5" style={{ backgroundColor: seg.color }} />
                         <div>
-                          <p className="text-xs font-semibold text-slate-700">{seg.label}</p>
-                          <p className="text-[10px] text-slate-400 font-medium">{seg.value} ({pct}%)</p>
+                          <p className="text-xs font-bold text-slate-800">{seg.label}</p>
+                          <p className="text-xs text-slate-500 font-semibold">{seg.value} ({pct}%)</p>
                         </div>
                       </div>
                     );
@@ -1114,7 +1211,7 @@ export default function ReportDetailPage() {
               </div>
             );
           })() : (
-            <div className="flex items-center justify-center h-[160px] text-slate-400 text-xs font-medium">
+            <div className="flex items-center justify-center h-[160px] text-slate-500 text-xs font-bold">
               No completed candidates yet
             </div>
           )}
@@ -1147,7 +1244,7 @@ export default function ReportDetailPage() {
             if (allCandidatesLoading && allCandidates.length === 0) {
               return (
                 <div className="flex items-center justify-center h-[160px]">
-                  <div className="flex items-center space-x-2 text-slate-400 text-xs font-medium">
+                  <div className="flex items-center space-x-2 text-slate-500 text-xs font-semibold">
                     <FiRefreshCw className="w-3.5 h-3.5 animate-spin" />
                     <span>Loading candidate data…</span>
                   </div>
@@ -1157,7 +1254,7 @@ export default function ReportDetailPage() {
 
             if (!hasCandidates) {
               return (
-                <div className="flex items-center justify-center h-[160px] text-slate-400 text-xs font-medium">
+                <div className="flex items-center justify-center h-[160px] text-slate-550 text-xs font-bold">
                   No candidate data available
                 </div>
               );
@@ -1170,7 +1267,7 @@ export default function ReportDetailPage() {
                   {buckets.map((b, i) => (
                     <div key={i} className="flex-1 flex flex-col items-center h-full">
                       {/* Count label */}
-                      <span className={`text-[11px] font-bold mb-1.5 ${b.count > 0 ? 'text-slate-700' : 'text-slate-300'}`}>
+                      <span className={`text-xs font-bold mb-1.5 ${b.count > 0 ? 'text-slate-800' : 'text-slate-300'}`}>
                         {b.count}
                       </span>
                       {/* Bar container */}
@@ -1186,7 +1283,7 @@ export default function ReportDetailPage() {
                         />
                       </div>
                       {/* Range label */}
-                      <span className="text-[9px] text-slate-400 font-semibold mt-2 text-center leading-tight">
+                      <span className="text-xs text-slate-500 font-bold mt-2 text-center leading-tight">
                         {b.label}
                       </span>
                     </div>
@@ -1194,10 +1291,10 @@ export default function ReportDetailPage() {
                 </div>
                 {/* Summary */}
                 <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-[10px] text-slate-400 font-medium">
+                  <span className="text-xs text-slate-500 font-semibold">
                     {allCandidates.length} candidate{allCandidates.length !== 1 ? 's' : ''} scored
                   </span>
-                  <span className="text-[10px] text-slate-400 font-medium">
+                  <span className="text-xs text-slate-500 font-semibold">
                     Median: {(() => {
                       const sorted = allCandidates.map(c => safeNum(c.percentage)).sort((a, b) => a - b);
                       const mid = Math.floor(sorted.length / 2);
@@ -1213,10 +1310,10 @@ export default function ReportDetailPage() {
 
       {/* ── Completion Funnel ── */}
       <div className="bg-white rounded-xl border border-slate-200/70 shadow-sm p-6 mb-6">
-        <h3 className="text-[14px] font-bold text-slate-800 mb-4">Completion Funnel</h3>
+        <h3 className="text-[14px] font-bold text-slate-800 mb-4">Assessment Pipeline Funnel</h3>
 
         {/* Labels row */}
-        <div className="flex justify-between text-[10px] font-semibold text-slate-500 mb-2">
+        <div className="flex justify-between text-xs font-bold text-slate-700 mb-2">
           <span>{rawTotal > 0 ? `Registered: ${rawTotal}` : `Candidates: ${effectiveTotal}`}</span>
           <span>Completed: {completed}</span>
           <span>Not Completed: {notCompleted}</span>
@@ -1228,7 +1325,7 @@ export default function ReportDetailPage() {
             <>
               {completedPct > 0 && (
                 <div
-                  className="h-full bg-[#0B4A99] flex items-center justify-center text-white text-[11px] font-bold transition-all duration-500 rounded-l-lg"
+                  className="h-full bg-[#0B4A99] flex items-center justify-center text-white text-xs font-black transition-all duration-500 rounded-l-lg"
                   style={{ width: `${Math.max(completedPct, 8)}%` }}
                 >
                   {completedPct >= 12 && `${completedPct.toFixed(1)}%`}
@@ -1236,7 +1333,7 @@ export default function ReportDetailPage() {
               )}
               {notCompleted > 0 && (
                 <div
-                  className="h-full bg-slate-200 flex items-center justify-center text-slate-500 text-[11px] font-bold transition-all duration-500"
+                  className="h-full bg-slate-200 flex items-center justify-center text-slate-655 text-xs font-black transition-all duration-500"
                   style={{ width: `${Math.max(100 - completedPct, 8)}%` }}
                 >
                   {(100 - completedPct) >= 12 && `${(100 - completedPct).toFixed(1)}%`}
@@ -1244,34 +1341,22 @@ export default function ReportDetailPage() {
               )}
             </>
           ) : (
-            <div className="h-full w-full flex items-center justify-center text-slate-400 text-[11px] font-semibold">
+            <div className="h-full w-full flex items-center justify-center text-slate-500 text-xs font-bold">
               No candidates yet
             </div>
           )}
         </div>
 
-        {/* Legend */}
-        <div className="flex items-center space-x-5 mt-3">
-          <div className="flex items-center">
-            <span className="w-2.5 h-2.5 rounded-sm bg-[#0B4A99] mr-1.5" />
-            <span className="text-[10px] text-slate-500 font-medium">Completed</span>
-          </div>
-          <div className="flex items-center">
-            <span className="w-2.5 h-2.5 rounded-sm bg-slate-200 mr-1.5" />
-            <span className="text-[10px] text-slate-500 font-medium">Not Completed</span>
-          </div>
-        </div>
-
         {/* Timestamps */}
         {(report.lastUpdated || report.generatedAt) && (
-          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center space-x-4">
+          <div className="mt-5 pt-3 border-t border-slate-100 flex items-center space-x-4">
             {report.generatedAt && (
-              <span className="text-[10px] text-slate-400 font-medium">
+              <span className="text-xs text-slate-500 font-semibold">
                 Generated: {new Date(report.generatedAt).toLocaleString()}
               </span>
             )}
             {report.lastUpdated && (
-              <span className="text-[10px] text-slate-400 font-medium">
+              <span className="text-xs text-slate-500 font-semibold">
                 Last updated: {new Date(report.lastUpdated).toLocaleString()}
               </span>
             )}
@@ -1281,6 +1366,143 @@ export default function ReportDetailPage() {
 
       {/* ── Candidates Table ── */}
       <div id="candidates-section" className="bg-white rounded-xl border border-slate-200/70 shadow-sm">
+        
+        {/* View Selection Tabs */}
+        <div className="flex border-b border-slate-100 px-5 bg-slate-50/5 flex-shrink-0 select-none">
+          <button
+            onClick={() => { setViewTab('all'); setCurrentPage(1); }}
+            className={`py-3.5 px-5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+              viewTab === 'all'
+                ? 'border-[#0B4A99] text-[#0B4A99]'
+                : 'border-transparent text-slate-400 hover:text-slate-700'
+            }`}
+          >
+            All Candidates
+          </button>
+          <button
+            onClick={() => { setViewTab('shortlisted'); setCurrentPage(1); }}
+            className={`py-3.5 px-5 text-xs font-bold border-b-2 transition-all cursor-pointer ${
+              viewTab === 'shortlisted'
+                ? 'border-[#0B4A99] text-[#0B4A99]'
+                : 'border-transparent text-slate-400 hover:text-slate-700'
+            }`}
+          >
+            Shortlisted Candidates
+          </button>
+        </div>
+
+        {/* Shortlist Generator Panel */}
+        {viewTab === 'shortlisted' && (
+          <div className="p-6 border-b border-slate-100 bg-slate-50/30">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-5 border-b border-slate-200/50">
+              <div>
+                <h4 className="text-[13px] font-bold text-slate-800">Shortlisting Criteria</h4>
+                <p className="text-[10px] text-slate-400 font-medium mt-0.5">Define automated screening thresholds to extract the top-performing candidates</p>
+              </div>
+              
+              <button
+                onClick={handleGenerateShortlist}
+                disabled={generating}
+                className="bg-[#0B4A99] hover:bg-[#093d7e] disabled:bg-slate-200 disabled:text-slate-400 text-white text-[11px] font-bold px-5 py-2.5 rounded-xl transition-all shadow-md shadow-[#0B4A99]/10 hover:shadow-lg hover:shadow-[#0B4A99]/20 cursor-pointer disabled:cursor-not-allowed flex items-center justify-center flex-shrink-0"
+              >
+                {generating ? (
+                  <>
+                    <FiRefreshCw className="w-3.5 h-3.5 mr-2 animate-spin" />
+                    <span>Generating...</span>
+                  </>
+                ) : (
+                  <>
+                    <FiAward className="w-3.5 h-3.5 mr-2" />
+                    <span>Generate Shortlist</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Premium inputs grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mt-5">
+              {/* Top N */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center">
+                  <FiUser className="w-3.5 h-3.5 mr-1.5 text-slate-400" />
+                  Top Candidates Count
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold select-none">Top</span>
+                  <input 
+                    type="number" 
+                    value={topN} 
+                    onChange={(e) => setTopN(e.target.value)} 
+                    className="w-full bg-[#F8FAFC] border border-slate-200 hover:border-slate-350 focus:border-[#0B4A99] focus:bg-white rounded-xl pl-10 pr-16 py-2 text-xs font-bold text-slate-800 transition-all focus:ring-2 focus:ring-[#0B4A99]/10"
+                    placeholder="10"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] font-semibold select-none">candidates</span>
+                </div>
+              </div>
+
+              {/* Min Score % */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center">
+                  <FiTrendingUp className="w-3.5 h-3.5 mr-1.5 text-slate-400" />
+                  Minimum Score %
+                </label>
+                <div className="relative">
+                  <input 
+                    type="number" 
+                    value={minPct} 
+                    onChange={(e) => setMinPct(e.target.value)} 
+                    className="w-full bg-[#F8FAFC] border border-slate-200 hover:border-slate-350 focus:border-[#0B4A99] focus:bg-white rounded-xl px-3 py-2 text-xs font-bold text-slate-800 transition-all focus:ring-2 focus:ring-[#0B4A99]/10"
+                    placeholder="60"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] font-semibold select-none">% score</span>
+                </div>
+              </div>
+
+              {/* Max Warnings */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center">
+                  <FiAlertTriangle className="w-3.5 h-3.5 mr-1.5 text-slate-400" />
+                  Max Warnings Allowed
+                </label>
+                <div className="relative">
+                  <input 
+                    type="number" 
+                    value={maxWarnings} 
+                    onChange={(e) => setMaxWarnings(e.target.value)} 
+                    className="w-full bg-[#F8FAFC] border border-slate-200 hover:border-slate-350 focus:border-[#0B4A99] focus:bg-white rounded-xl px-3 py-2 text-xs font-bold text-slate-800 transition-all focus:ring-2 focus:ring-[#0B4A99]/10"
+                    placeholder="3"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-[10px] font-semibold select-none">warnings</span>
+                </div>
+              </div>
+
+              {/* Passed Only Premium Toggle Switch */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center">
+                  <FiCheckCircle className="w-3.5 h-3.5 mr-1.5 text-slate-400" />
+                  Status Filter
+                </label>
+                <div className="flex items-center justify-between bg-[#F8FAFC] border border-slate-200 rounded-xl px-3 py-1.5 h-[38px] select-none">
+                  <span className="text-xs font-bold text-slate-600">Passed Only</span>
+                  <button
+                    type="button"
+                    onClick={() => setPassedOnly(!passedOnly)}
+                    className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      passedOnly ? 'bg-[#0B4A99]' : 'bg-slate-200'
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-[0_1px_2px_0_rgba(0,0,0,0.15)] ring-0 transition duration-200 ease-in-out ${
+                        passedOnly ? 'translate-x-4' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="px-5 py-4 border-b border-slate-100 flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center bg-slate-50/10">
           <div className="flex items-center space-x-2">
             <FiUser className="w-4 h-4 text-slate-400" />
@@ -1299,67 +1521,69 @@ export default function ReportDetailPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="bg-white border border-slate-200 rounded-lg text-[11px] px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-100 text-slate-700 w-full sm:w-56"
             />
-            <div className="relative w-full sm:w-auto" ref={filterDropdownRef}>
-              <button
-                type="button"
-                onClick={() => setIsFilterOpen(prev => !prev)}
-                className={`flex items-center justify-between px-3 py-1.5 bg-white border rounded-lg text-[11px] font-bold shadow-xs transition-all ${
-                  isFilterOpen
-                    ? 'border-[#0B4A99] ring-2 ring-[#0B4A99]/15 shadow-sm'
-                    : 'border-slate-200 hover:border-slate-300'
-                } cursor-pointer text-slate-700 w-full sm:w-auto sm:min-w-[170px]`}
-              >
-                <span className="truncate text-slate-700 font-semibold">
-                  {validationFilter === 'all' && 'All Candidates'}
-                  {validationFilter === 'pending_any' && 'Pending Review (Any)'}
-                  {validationFilter === 'pending' && 'Pending Coding Review'}
-                  {validationFilter === 'pending_descriptive' && 'Pending Descriptive Review'}
-                  {validationFilter === 'validated' && 'Validated / Complete'}
-                </span>
-                <div className={`transition-transform duration-200 ${isFilterOpen ? 'rotate-180 text-[#0B4A99]' : 'text-slate-400'} flex-shrink-0 ml-2`}>
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </div>
-              </button>
+            {viewTab !== 'shortlisted' && (
+              <div className="relative w-full sm:w-auto" ref={filterDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsFilterOpen(prev => !prev)}
+                  className={`flex items-center justify-between px-3 py-1.5 bg-white border rounded-lg text-[11px] font-bold shadow-xs transition-all ${
+                    isFilterOpen
+                      ? 'border-[#0B4A99] ring-2 ring-[#0B4A99]/15 shadow-sm'
+                      : 'border-slate-200 hover:border-slate-300'
+                  } cursor-pointer text-slate-700 w-full sm:w-auto sm:min-w-[170px]`}
+                >
+                  <span className="truncate text-slate-700 font-semibold">
+                    {validationFilter === 'all' && 'All Candidates'}
+                    {validationFilter === 'pending_any' && 'Pending Review (Any)'}
+                    {validationFilter === 'pending' && 'Pending Coding Review'}
+                    {validationFilter === 'pending_descriptive' && 'Pending Descriptive Review'}
+                    {validationFilter === 'validated' && 'Validated / Complete'}
+                  </span>
+                  <div className={`transition-transform duration-200 ${isFilterOpen ? 'rotate-180 text-[#0B4A99]' : 'text-slate-400'} flex-shrink-0 ml-2`}>
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </button>
 
-              {isFilterOpen && (
-                <div className="absolute right-0 top-full mt-1 z-[990] bg-white border border-slate-200 rounded-xl shadow-xl p-1.5 space-y-0.5 animate-fade-in w-full sm:w-[210px] flex flex-col">
-                  {[
-                    { val: 'all', label: 'All Candidates' },
-                    ...(reportsHasCoding || reportsHasDescriptive ? [{ val: 'pending_any', label: 'Pending Review (Any)' }] : []),
-                    ...(reportsHasCoding ? [{ val: 'pending', label: 'Pending Coding Review' }] : []),
-                    ...(reportsHasDescriptive ? [{ val: 'pending_descriptive', label: 'Pending Descriptive Review' }] : []),
-                    { val: 'validated', label: 'Validated / Complete' }
-                  ].map((opt) => {
-                    const isSelected = opt.val === validationFilter;
-                    return (
-                      <button
-                        key={opt.val}
-                        type="button"
-                        onClick={() => {
-                          setValidationFilter(opt.val);
-                          setIsFilterOpen(false);
-                          shouldScrollRef.current = true;
-                        }}
-                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-left transition-all ${
-                          isSelected
-                            ? 'bg-blue-50/60 text-[#0B4A99] font-bold shadow-xs'
-                            : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
-                        }`}
-                      >
-                        <span className="truncate">{opt.label}</span>
-                        {isSelected && (
-                          <svg className="w-3 h-3 text-[#0B4A99] flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+                {isFilterOpen && (
+                  <div className="absolute right-0 top-full mt-1 z-[990] bg-white border border-slate-200 rounded-xl shadow-xl p-1.5 space-y-0.5 animate-fade-in w-full sm:w-[210px] flex flex-col">
+                    {[
+                      { val: 'all', label: 'All Candidates' },
+                      ...(reportsHasCoding || reportsHasDescriptive ? [{ val: 'pending_any', label: 'Pending Review (Any)' }] : []),
+                      ...(reportsHasCoding ? [{ val: 'pending', label: 'Pending Coding Review' }] : []),
+                      ...(reportsHasDescriptive ? [{ val: 'pending_descriptive', label: 'Pending Descriptive Review' }] : []),
+                      { val: 'validated', label: 'Validated / Complete' }
+                    ].map((opt) => {
+                      const isSelected = opt.val === validationFilter;
+                      return (
+                        <button
+                          key={opt.val}
+                          type="button"
+                          onClick={() => {
+                            setValidationFilter(opt.val);
+                            setIsFilterOpen(false);
+                            shouldScrollRef.current = true;
+                          }}
+                          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-left transition-all ${
+                            isSelected
+                              ? 'bg-blue-50/60 text-[#0B4A99] font-bold shadow-xs'
+                              : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                          }`}
+                        >
+                          <span className="truncate">{opt.label}</span>
+                          {isSelected && (
+                            <svg className="w-3 h-3 text-[#0B4A99] flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Sort Dropdown */}
             <div className="relative w-full sm:w-auto" ref={sortDropdownRef}>
@@ -1427,9 +1651,24 @@ export default function ReportDetailPage() {
             {!candidatesLoading && candidates.length > 0 && (
               <button
                 onClick={handleDownloadCandidatesExcel}
-                className="flex items-center px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 hover:text-emerald-800 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-xs border border-emerald-150"
+                disabled={exportingExcel}
+                className={`flex items-center px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                  exportingExcel
+                    ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-75'
+                    : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 hover:text-emerald-800 border-emerald-150 cursor-pointer shadow-xs'
+                }`}
               >
-                <FiDownload className="w-3.5 h-3.5 mr-1.5" /> Export Candidates
+                {exportingExcel ? (
+                  <>
+                    <FiRefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                    Preparing Excel...
+                  </>
+                ) : (
+                  <>
+                    <FiDownload className="w-3.5 h-3.5 mr-1.5" />
+                    Export Candidates
+                  </>
+                )}
               </button>
             )}
           </div>
@@ -1455,7 +1694,7 @@ export default function ReportDetailPage() {
           <table className="w-full table-fixed min-w-[1000px] lg:min-w-full">
             <thead>
               <tr className="border-b border-slate-100 text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50/20 whitespace-nowrap">
-                <th className="px-2 py-3 w-[3%] text-center"></th>
+                {viewTab !== 'shortlisted' && <th className="px-2 py-3 w-[3%] text-center"></th>}
                 <th className="px-3 py-3 text-left w-auto">Candidate</th>
                 <th className="px-2 py-3 text-center w-[8%]">MCQ %</th>
                 {reportsHasCoding && <th className="px-2 py-3 text-center w-[8%]">Coding %</th>}
@@ -1473,7 +1712,7 @@ export default function ReportDetailPage() {
                 <>
                   {[...Array(itemsPerPage)].map((_, i) => (
                     <tr key={i} className="animate-pulse">
-                      <td className="px-2 py-4 text-center"><div className="h-4 w-4 bg-slate-100 rounded mx-auto" /></td>
+                      {viewTab !== 'shortlisted' && <td className="px-2 py-4 text-center"><div className="h-4 w-4 bg-slate-100 rounded mx-auto" /></td>}
                       <td className="px-3 py-4 text-left"><div className="h-4 bg-slate-100 rounded-md w-40" /></td>
                       <td className="px-2 py-4 text-center"><div className="h-4 bg-slate-100 rounded-md w-10 mx-auto" /></td>
                       {reportsHasCoding && <td className="px-2 py-4 text-center"><div className="h-4 bg-slate-100 rounded-md w-10 mx-auto" /></td>}
@@ -1491,7 +1730,7 @@ export default function ReportDetailPage() {
               {/* Empty state */}
               {!candidatesLoading && !candidatesError && candidates.length === 0 && (
                 <tr>
-                  <td colSpan={8 + (reportsHasCoding ? 1 : 0) + (reportsHasDescriptive ? 1 : 0)} className="px-5 py-12 text-center">
+                  <td colSpan={(viewTab !== 'shortlisted' ? 8 : 7) + (reportsHasCoding ? 1 : 0) + (reportsHasDescriptive ? 1 : 0)} className="px-5 py-12 text-center">
                     <FiUser className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                     <p className="text-sm font-semibold text-slate-500">No candidate data yet</p>
                     <p className="text-xs text-slate-400 mt-1">Candidate results will appear here once submissions are received.</p>
@@ -1502,7 +1741,7 @@ export default function ReportDetailPage() {
               {/* No matching filter results empty state */}
               {!candidatesLoading && !candidatesError && candidates.length > 0 && sortedCandidates.length === 0 && (
                 <tr>
-                  <td colSpan={8 + (reportsHasCoding ? 1 : 0) + (reportsHasDescriptive ? 1 : 0)} className="px-5 py-12 text-center text-slate-400">
+                  <td colSpan={(viewTab !== 'shortlisted' ? 8 : 7) + (reportsHasCoding ? 1 : 0) + (reportsHasDescriptive ? 1 : 0)} className="px-5 py-12 text-center text-slate-400">
                     <FiSearch className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                     <p className="text-sm font-semibold text-slate-500">No matching candidates found</p>
                     <p className="text-xs text-slate-400 mt-1">Try adjusting your search query or filter options.</p>
@@ -1553,14 +1792,16 @@ export default function ReportDetailPage() {
                   <React.Fragment key={c.mailId}>
                     <tr
                       id={`candidate-row-${c.mailId.replace(/[@.]/g, '-')}`}
-                      onClick={() => toggleExpand(c.mailId)}
-                      className="hover:bg-slate-50/50 group transition-colors cursor-pointer"
+                      onClick={() => { if (viewTab !== 'shortlisted') toggleExpand(c.mailId); }}
+                      className={`hover:bg-slate-50/50 group transition-colors ${viewTab !== 'shortlisted' ? 'cursor-pointer' : 'cursor-default'}`}
                     >
-                      <td className="px-2 py-4 w-10 text-center">
-                        {isExpanded
-                          ? <FiChevronUp className="w-3.5 h-3.5 text-[#0B4A99] mx-auto" />
-                          : <FiChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 mx-auto" />}
-                      </td>
+                      {viewTab !== 'shortlisted' && (
+                        <td className="px-2 py-4 w-10 text-center">
+                          {isExpanded
+                            ? <FiChevronUp className="w-3.5 h-3.5 text-[#0B4A99] mx-auto" />
+                            : <FiChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-600 mx-auto" />}
+                        </td>
+                      )}
                       <td className="px-3 py-4 text-left min-w-0">
                         <div className="flex items-center">
                           <div className="w-7 h-7 rounded-lg bg-blue-50 text-[#0B4A99] flex items-center justify-center mr-2.5 flex-shrink-0">
@@ -1631,7 +1872,7 @@ export default function ReportDetailPage() {
                       </td>
                     </tr>
                     <AnimatePresence initial={false}>
-                      {isExpanded && <CandidateDetail c={c} testId={testId} />}
+                      {isExpanded && viewTab !== 'shortlisted' && <CandidateDetail c={c} testId={testId} />}
                     </AnimatePresence>
                   </React.Fragment>
                 );
@@ -1743,6 +1984,98 @@ export default function ReportDetailPage() {
           </div>
         )}
       </div>
+
+      {/* ── Delete Confirmation Dialog ── */}
+      <AnimatePresence>
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => {
+                if (!deleting) setShowDeleteConfirm(false);
+              }}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs"
+            />
+
+            {/* Modal Box */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ duration: 0.2 }}
+              className="bg-white rounded-2xl border border-slate-200/80 shadow-2xl p-6 max-w-md w-full relative z-10 flex flex-col"
+            >
+              <div className="flex items-center space-x-3 text-red-650 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0">
+                  <FiAlertTriangle className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-[15px] font-bold text-slate-900">Delete Test Report</h3>
+                  <p className="text-xs text-red-600 font-semibold mt-0.5">This action is permanent and irreversible.</p>
+                </div>
+              </div>
+
+              <div className="space-y-3.5 text-xs text-slate-600 leading-relaxed">
+                <p>
+                  Deleting this report will permanently remove all candidate submissions, proctoring warning histories, and scoring statistics for this test.
+                </p>
+                <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
+                  <p className="font-semibold text-slate-700">
+                    Please type the test name below to confirm deletion:
+                  </p>
+                  <p className="font-black text-slate-800 select-all mt-1 bg-white border border-slate-200/50 rounded-lg px-2.5 py-1 text-center font-mono">
+                    {report?.testName || 'Unnamed Test'}
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <input
+                    type="text"
+                    value={deleteConfirmInput}
+                    onChange={(e) => setDeleteConfirmInput(e.target.value)}
+                    disabled={deleting}
+                    placeholder="Enter the exact test name"
+                    className="w-full bg-[#F8FAFC] border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-500 placeholder:text-slate-400"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end space-x-2.5 mt-6">
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={deleting || deleteConfirmInput.trim() !== (report?.testName || 'Unnamed Test').trim()}
+                  onClick={handleDeleteReport}
+                  className={`flex items-center px-4 py-2 rounded-lg text-xs font-bold transition-all border ${
+                    deleting || deleteConfirmInput.trim() !== (report?.testName || 'Unnamed Test').trim()
+                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
+                      : 'bg-red-600 hover:bg-red-700 text-white border-red-600 cursor-pointer shadow-sm'
+                  }`}
+                >
+                  {deleting ? (
+                    <>
+                      <FiRefreshCw className="w-3 h-3 mr-1.5 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    'Permanently Delete'
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

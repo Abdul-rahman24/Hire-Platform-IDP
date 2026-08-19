@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { FiBell, FiSearch, FiMenu } from 'react-icons/fi';
+import { FiMenu } from 'react-icons/fi';
 
 const PAGE_TITLES = {
   '/test-configuration': { title: 'Test Configuration', sub: 'Manage complete examinations' },
@@ -31,18 +31,6 @@ export default function TopNav({ onMenuClick }) {
       </div>
 
       <div className="flex items-center space-x-3">
-        <div className="relative hidden lg:block">
-          <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5 pointer-events-none" />
-          <input
-            type="text"
-            placeholder="Quick search..."
-            className="w-52 bg-slate-50 border border-slate-200 rounded-xl pl-8.5 pr-3.5 py-1.5 text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-1.5 focus:ring-[#0B4A99] focus:border-[#0B4A99] focus:bg-white transition-all"
-          />
-        </div>
-        <button className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-all relative">
-          <FiBell className="w-4 h-4" />
-          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-[#0B4A99] rounded-full" />
-        </button>
         <div className="w-8 h-8 rounded-xl bg-[#0B4A99] text-white flex items-center justify-center font-bold text-[11px] cursor-pointer shadow-xs">
           AU
         </div>

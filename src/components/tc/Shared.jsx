@@ -277,13 +277,15 @@ export function StatMini({ label, value, icon, color = 'blue', loading = false }
     amber: 'bg-amber-50 text-amber-600',
     slate: 'bg-slate-100 text-slate-500',
     orange: 'bg-orange-50 text-orange-600',
-  }[color];
+    indigo: 'bg-indigo-50 text-indigo-600',
+    rose: 'bg-rose-50 text-rose-600',
+  }[color] || 'bg-blue-50 text-[#0B4A99]';
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 px-4 py-3.5 flex items-center space-x-3 shadow-xs">
       <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${clr}`}>{icon}</div>
       <div>
         <p className="text-xl font-bold text-slate-900 leading-none">{value}</p>
-        <p className="text-[11px] text-slate-400 font-medium mt-0.5">{label}</p>
+        <p className="text-xs text-slate-500 font-semibold mt-0.5">{label}</p>
       </div>
     </div>
   );
