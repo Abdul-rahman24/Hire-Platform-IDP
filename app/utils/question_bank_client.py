@@ -1,9 +1,8 @@
 import json
 import os
 import time
-import urllib.error
-import urllib.request
 from typing import Any
+import urllib3
 
 from app.core.config import get_settings
 from app.core.exceptions import QuestionServiceException, QuestionSetNotFoundException
@@ -12,9 +11,18 @@ from app.schemas.question_bank import QuestionSetResponse
 
 logger = get_logger(__name__)
 
+# Shared persistent connection pool & in-memory cache across Lambda invocations and local runs
+_http_pool = urllib3.PoolManager(
+    maxsize=30,
+    timeout=urllib3.Timeout(connect=2.0, read=5.0),
+    retries=urllib3.Retry(total=2, backoff_factor=0.2),
+)
+_global_sets_cache: dict[str, tuple[float, dict[str, Any]]] = {}
+_global_list_cache: tuple[float, list[QuestionSetResponse]] | None = None
+
 
 class QuestionBankClient:
-    """Live Question Bank client with in-memory TTL caching."""
+    """Live Question Bank client with high-concurrency connection pooling and in-memory TTL caching."""
 
     def __init__(self, base_url: str | None = None, timeout: float = 10.0, cache_ttl: float = 300.0) -> None:
         try:
@@ -30,40 +38,35 @@ class QuestionBankClient:
         self.base_url = (base_url or os.getenv("QUESTION_SERVICE_URL") or default_url).rstrip("/")
         self.timeout = timeout
         self.cache_ttl = cache_ttl
-        self._cache: dict[str, tuple[float, dict[str, Any]]] = {}
-        self._sets_cache: tuple[float, list[QuestionSetResponse]] | None = None
+        self.http = _http_pool
 
     def get_question_set(self, question_set_id: str) -> dict[str, Any]:
+        global _global_sets_cache
         now = time.time()
-        if question_set_id in self._cache:
-            cached_time, cached_data = self._cache[question_set_id]
+        if question_set_id in _global_sets_cache:
+            cached_time, cached_data = _global_sets_cache[question_set_id]
             if now - cached_time < self.cache_ttl:
                 logger.debug("Serving question set '%s' from in-memory cache", question_set_id)
                 return cached_data
 
         data = self._fetch_remote_question_set(question_set_id)
         if isinstance(data, dict):
-            self._cache[question_set_id] = (now, data)
+            _global_sets_cache[question_set_id] = (now, data)
         return data
 
     def _fetch_remote_question_set(self, question_set_id: str) -> dict[str, Any]:
         url = f"{self.base_url}/question-sets/{question_set_id}"
         logger.info("Calling Question Bank Service: GET %s", url)
-        req = urllib.request.Request(url, headers={"Accept": "application/json"})
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                if resp.status == 200:
-                    return json.loads(resp.read().decode("utf-8"))
+            resp = self.http.request("GET", url, headers={"Accept": "application/json"})
+            if resp.status == 200:
+                return json.loads(resp.data.decode("utf-8"))
+            if resp.status in (400, 404):
                 raise QuestionSetNotFoundException(
                     f"Invalid Question Set: '{question_set_id}' does not exist.",
                 )
-        except urllib.error.HTTPError as e:
-            if e.code in (400, 404):
-                raise QuestionSetNotFoundException(
-                    f"Invalid Question Set: '{question_set_id}' does not exist.",
-                )
-            logger.error("HTTP error from Question Service: %s %s", e.code, e.reason)
-            raise QuestionServiceException(f"Question Bank Service HTTP Error: {e.code}")
+            logger.error("HTTP error from Question Service: %s", resp.status)
+            raise QuestionServiceException(f"Question Bank Service HTTP Error: {resp.status}")
         except QuestionSetNotFoundException:
             raise
         except QuestionServiceException:
@@ -73,34 +76,34 @@ class QuestionBankClient:
             raise QuestionServiceException(f"Unable to connect to Question Bank Service: {str(e)}")
 
     def list_question_sets(self) -> list[QuestionSetResponse]:
+        global _global_list_cache
         now = time.time()
-        if self._sets_cache is not None:
-            cached_time, cached_sets = self._sets_cache
+        if _global_list_cache is not None:
+            cached_time, cached_sets = _global_list_cache
             if now - cached_time < self.cache_ttl:
                 logger.debug("Serving question sets list from in-memory RAM cache")
                 return cached_sets
 
         url = f"{self.base_url}/question-sets"
         logger.info("Calling Question Bank Service: GET %s", url)
-        req = urllib.request.Request(url, headers={"Accept": "application/json"})
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                if resp.status == 200:
-                    raw_res = json.loads(resp.read().decode("utf-8"))
-                    items_list = raw_res.get("data", raw_res) if isinstance(raw_res, dict) else raw_res
-                    results = []
-                    for item in items_list:
-                        if isinstance(item, dict):
-                            results.append(
-                                QuestionSetResponse(
-                                    questionSetId=item.get("questionSetId", item.get("id", "SET001")),
-                                    questionSetName=item.get("title", item.get("questionSetName", "Question Set")),
-                                    totalQuestions=item.get("totalQuestions", len(item.get("questions", []))),
-                                )
+            resp = self.http.request("GET", url, headers={"Accept": "application/json"})
+            if resp.status == 200:
+                raw_res = json.loads(resp.data.decode("utf-8"))
+                items_list = raw_res.get("data", raw_res) if isinstance(raw_res, dict) else raw_res
+                results = []
+                for item in items_list:
+                    if isinstance(item, dict):
+                        results.append(
+                            QuestionSetResponse(
+                                questionSetId=item.get("questionSetId", item.get("id", "SET001")),
+                                questionSetName=item.get("title", item.get("questionSetName", "Question Set")),
+                                totalQuestions=item.get("totalQuestions", len(item.get("questions", []))),
                             )
-                    if results:
-                        self._sets_cache = (now, results)
-                        return results
+                        )
+                if results:
+                    _global_list_cache = (now, results)
+                    return results
         except Exception as e:
             logger.error("Error listing question sets from Question Bank Service: %s", e)
 
