@@ -19,12 +19,6 @@ class SectionCreateRequest(BaseModel):
         serialization_alias="questionSetId",
         min_length=1,
     )
-    question_type: str | None = Field(
-        default=None,
-        alias="questionType",
-        validation_alias=AliasChoices("questionType", "question_type", "type"),
-        serialization_alias="questionType",
-    )
     duration_minutes: int = Field(
         default=30,
         alias="durationMinutes",
@@ -65,12 +59,6 @@ class SectionUpdateRequest(BaseModel):
         alias="questionSetId",
         validation_alias=AliasChoices("questionSetId", "question_set_id"),
         serialization_alias="questionSetId",
-    )
-    question_type: str | None = Field(
-        default=None,
-        alias="questionType",
-        validation_alias=AliasChoices("questionType", "question_type", "type"),
-        serialization_alias="questionType",
     )
     duration_minutes: int | None = Field(
         default=None,

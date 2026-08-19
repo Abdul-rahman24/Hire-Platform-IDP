@@ -90,10 +90,7 @@ class SectionService(SectionServiceInterface):
             raise QuestionSetNotFoundException(f"Invalid Question Set: '{payload.question_set_id}' does not exist.")
 
         dump = payload.model_dump()
-        if payload.question_type:
-            dump["question_type"] = _normalize_question_type(payload.question_type)
-        else:
-            dump["question_type"] = _extract_question_type_from_set(qset)
+        dump["question_type"] = _extract_question_type_from_set(qset)
 
         entity = SectionEntity(test_id=test_id, **dump)
         created_entity = self.repository.create(entity)
@@ -138,9 +135,7 @@ class SectionService(SectionServiceInterface):
         updated_data.update(update_dict)
         updated_data["question_set_id"] = new_question_set_id
         
-        if payload.question_type:
-            updated_data["question_type"] = _normalize_question_type(payload.question_type)
-        elif qset is not None:
+        if qset is not None:
             updated_data["question_type"] = _extract_question_type_from_set(qset)
 
         entity = SectionEntity.model_validate(updated_data)
