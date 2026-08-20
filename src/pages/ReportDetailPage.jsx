@@ -60,7 +60,7 @@ function AnomalyBanner({ icon, children, onDismiss }) {
 
 
 /* ── Candidate Detail Card (expanded view) ── */
-function CandidateDetail({ c, testId }) {
+function CandidateDetail({ c, testId, totalColumns }) {
   const navigate = useNavigate();
   const status = c.status || 'UNKNOWN';
   const statusStyles = status === 'PASSED'
@@ -108,8 +108,6 @@ function CandidateDetail({ c, testId }) {
   const descriptiveTotal = descriptiveSection ? safeNum(descriptiveSection.totalMarks) : 0;
   const numDescriptiveQuestions = descriptiveSection?.questions?.length || 0;
   const answeredDescriptiveCount = descriptiveSection?.questions?.filter(q => q.studentAnswer && q.studentAnswer.trim() !== '').length || 0;
-
-  const totalColumns = 8 + (hasCoding ? 1 : 0) + (hasDescriptive ? 1 : 0);
 
   return (
     <tr>
@@ -745,8 +743,8 @@ export default function ReportDetailPage() {
         <div className="flex items-center mb-6">
           <div className="h-5 w-32 bg-slate-100 rounded-md animate-pulse" />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-          {[...Array(5)].map((_, i) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {[...Array(4)].map((_, i) => (
             <StatMini key={i} loading={true} />
           ))}
         </div>
@@ -790,7 +788,8 @@ export default function ReportDetailPage() {
   const effectiveTotal = Math.max(rawTotal, completed);
   const notCompleted = Math.max(0, effectiveTotal - completed);
   const passed = safeNum(report.passedCandidates);
-  const failed = safeNum(report.failedCandidates);
+  const failed = Math.max(0, completed - passed);
+  const terminated = safeNum(report.totalTerminated);
   const completionRate = safePct(completed, effectiveTotal);
   const passPercentage = safeNum(report.passPercentage);
   const avgScore = safeNum(report.averageScore);
@@ -988,13 +987,19 @@ export default function ReportDetailPage() {
   const completedPct = effectiveTotal > 0 ? (completed / effectiveTotal) * 100 : 0;
 
   const reportsHasDescriptive = !!(
-    allCandidates.some(c => c.sectionWisePerformance?.some(sec => isDescriptiveSection(sec))) ||
+    allCandidates.some(c => c.sectionWisePerformance?.some(sec => isDescriptiveSection(sec) && safeNum(sec.totalMarks) > 0)) ||
     report?.sections?.some(sec => isDescriptiveSection(sec))
   );
   const reportsHasCoding = !!(
-    allCandidates.some(c => c.sectionWisePerformance?.some(sec => isCodingSection(sec))) ||
+    allCandidates.some(c => c.sectionWisePerformance?.some(sec => isCodingSection(sec) && safeNum(sec.totalMarks) > 0)) ||
     report?.sections?.some(sec => isCodingSection(sec))
   );
+  const reportsHasMcq = !!(
+    allCandidates.some(c => c.sectionWisePerformance?.some(sec => !isCodingSection(sec) && !isDescriptiveSection(sec) && safeNum(sec.totalMarks) > 0)) ||
+    report?.sections?.some(sec => !isCodingSection(sec) && !isDescriptiveSection(sec))
+  );
+
+  const totalColumns = (viewTab !== 'shortlisted' ? 7 : 6) + (reportsHasMcq ? 1 : 0) + (reportsHasCoding ? 1 : 0) + (reportsHasDescriptive ? 1 : 0);
 
   return (
     <div className="w-full space-y-5">
@@ -1052,94 +1057,32 @@ export default function ReportDetailPage() {
       </div>
 
       {/* ── Summary Cards ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-        <StatMini
-          icon={<FiCheckCircle className="w-4 h-4" />}
-          label="Completion Rate"
-          value={rawTotal > 0 ? `${completionRate.toFixed(1)}%` : '100%'}
-          color="blue"
-        />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatMini
           icon={<FiAward className="w-4 h-4" />}
-          label="Pass Rate"
-          value={fmtPct(passPercentage)}
+          label="Passed"
+          value={passed}
           color="green"
         />
         <StatMini
-          icon={<FiTrendingUp className="w-4 h-4" />}
-          label="Average Score"
-          value={avgScore}
-          color="indigo"
+          icon={<FiX className="w-4 h-4" />}
+          label="Failed"
+          value={failed}
+          color="rose"
         />
         <StatMini
-          icon={<FiClock className="w-4 h-4" />}
-          label="Avg Time Taken"
-          value={fmtTime(avgTime)}
-          color="amber"
+          icon={<FiCheckCircle className="w-4 h-4" />}
+          label="Completed"
+          value={completed}
+          color="blue"
         />
         <StatMini
           icon={<FiAlertTriangle className="w-4 h-4" />}
-          label="Avg Warnings"
-          value={avgWarnings.toFixed(1)}
-          color="rose"
+          label="Terminated"
+          value={terminated}
+          color="amber"
         />
       </div>
-
-      {/* ── Evaluation Progress Row ── */}
-      {(reportsHasCoding || reportsHasDescriptive) && (
-        <div className="space-y-2.5 mb-6">
-          <h3 className="text-[12px] font-bold text-slate-600 tracking-wide uppercase">Manual Evaluation Summary</h3>
-          <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-${2 + (reportsHasCoding ? 1 : 0) + (reportsHasDescriptive ? 1 : 0)} gap-4`}>
-            {allCandidatesLoading ? (
-              <StatMini loading={true} />
-            ) : (
-              <StatMini
-                icon={<FiCheckCircle className="w-4 h-4" />}
-                label="Validation Completed"
-                value={`${validationStats.validationCompletedCount} / ${validationStats.completedCount}`}
-                color="green"
-              />
-            )}
-
-            {allCandidatesLoading ? (
-              <StatMini loading={true} />
-            ) : (
-              <StatMini
-                icon={<FiAlertCircle className="w-4 h-4" />}
-                label="Pending Validation (Total)"
-                value={validationStats.pendingAnyCount}
-                color="amber"
-              />
-            )}
-
-            {reportsHasCoding && (
-              allCandidatesLoading ? (
-                <StatMini loading={true} />
-              ) : (
-                <StatMini
-                  icon={<FiAlertCircle className="w-4 h-4" />}
-                  label="Pending Coding Review"
-                  value={validationStats.pendingCodingCount}
-                  color="blue"
-                />
-              )
-            )}
-
-            {reportsHasDescriptive && (
-              allCandidatesLoading ? (
-                <StatMini loading={true} />
-              ) : (
-                <StatMini
-                  icon={<FiAlertCircle className="w-4 h-4" />}
-                  label="Pending Descriptive Review"
-                  value={validationStats.pendingDescriptiveCount}
-                  color="orange"
-                />
-              )
-            )}
-          </div>
-        </div>
-      )}
 
       {/* ── Charts Row ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
@@ -1188,21 +1131,20 @@ export default function ReportDetailPage() {
                   </svg>
                   {/* Center label */}
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-2xl font-bold text-slate-900">{fmtPct(passPercentage)}</span>
-                    <span className="text-xs text-slate-500 font-semibold">Pass Rate</span>
+                    <span className="text-2xl font-bold text-slate-900">{passed}</span>
+                    <span className="text-xs text-slate-500 font-semibold">Passed</span>
                   </div>
                 </div>
 
                 {/* Legend */}
                 <div className="space-y-3">
                   {segments.map((seg, i) => {
-                    const pct = total > 0 ? ((seg.value / total) * 100).toFixed(1) : '0.0';
                     return (
                       <div key={i} className="flex items-center">
                         <span className="w-3 h-3 rounded-sm flex-shrink-0 mr-2.5" style={{ backgroundColor: seg.color }} />
                         <div>
                           <p className="text-xs font-bold text-slate-800">{seg.label}</p>
-                          <p className="text-xs text-slate-500 font-semibold">{seg.value} ({pct}%)</p>
+                          <p className="text-xs text-slate-500 font-semibold">{seg.value}</p>
                         </div>
                       </div>
                     );
@@ -1816,9 +1758,11 @@ export default function ReportDetailPage() {
                         </div>
                       </td>
 
-                      <td className="px-2 py-4 text-center">
-                        <span className="font-semibold text-slate-700 text-xs">{mcqPct}</span>
-                      </td>
+                      {reportsHasMcq && (
+                        <td className="px-2 py-4 text-center">
+                          <span className="font-semibold text-slate-700 text-xs">{mcqPct}</span>
+                        </td>
+                      )}
                       {reportsHasCoding && (
                         <td className="px-2 py-4 text-center">
                           <span className="font-semibold text-slate-700 text-xs">{codingPct}</span>
@@ -1872,7 +1816,7 @@ export default function ReportDetailPage() {
                       </td>
                     </tr>
                     <AnimatePresence initial={false}>
-                      {isExpanded && viewTab !== 'shortlisted' && <CandidateDetail c={c} testId={testId} />}
+                      {isExpanded && viewTab !== 'shortlisted' && <CandidateDetail c={c} testId={testId} totalColumns={totalColumns} />}
                     </AnimatePresence>
                   </React.Fragment>
                 );

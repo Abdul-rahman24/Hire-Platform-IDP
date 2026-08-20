@@ -72,8 +72,14 @@ export default function DashboardOverview({ sets, loading, onNavigateToSet, onCr
                     </div>
                   </td>
                   <td className="px-5 py-4">
-                    <span className="font-bold text-slate-800 text-xs">{set.questionsCount || 0}</span>
-                    <span className="text-[10px] text-slate-400 font-medium ml-1">Questions</span>
+                    {set.loadingCount ? (
+                      <span className="inline-block w-8 h-3.5 bg-slate-100 animate-pulse rounded" />
+                    ) : (
+                      <>
+                        <span className="font-bold text-slate-800 text-xs">{set.questionsCount || 0}</span>
+                        <span className="text-[10px] text-slate-400 font-medium ml-1">Questions</span>
+                      </>
+                    )}
                   </td>
                   <td className="px-5 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end h-5">

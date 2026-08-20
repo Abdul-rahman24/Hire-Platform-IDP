@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   FiPlus, FiSearch, FiEye, FiEdit2, FiTrash2,
-  FiFileText, FiCheckCircle, FiClock, FiLayers, FiAward
+  FiFileText, FiCheckCircle, FiClock, FiLayers, FiAward, FiAlertTriangle
 } from 'react-icons/fi';
 import { Badge, StatMini, ConfirmDialog, EmptyState } from '../components/tc/Shared';
 import { CreateTestDrawer } from '../components/tc/Forms';
@@ -75,51 +75,32 @@ export default function TestListPage() {
   const [page, setPage] = useState(1);
   const PER_PAGE = 8;
 
-  // 1. Get All Tests: GET /tests (enriched with multi-sections counts)
+  // 1. Get All Tests: GET /tests (enriched with multi-sections counts from returned payload)
   const fetchTests = useCallback(async () => {
     setLoading(true);
     try {
       const data = await testConfigService.getTests();
       const items = data?.items || (Array.isArray(data) ? data : []);
 
-      // Enrich tests with section calculations dynamically
-      const enrichedItems = await Promise.all(
-        items.map(async (t) => {
-          const tId = t.testId || t.id;
-          try {
-            const sections = await testConfigService.getTestSections(tId);
-            let totalQCount = 0;
-            let totalMarksSum = 0;
+      // Calculate section and question metrics from the returned payload data
+      const enrichedItems = items.map((t) => {
+        const sections = t.sections || [];
+        let totalQCount = 0;
+        let totalMarksSum = 0;
 
-            await Promise.all(
-              sections.map(async (sec) => {
-                try {
-                  const qSet = await testConfigService.getQuestionSetDetails(sec.questionSetId);
-                  totalQCount += qSet.questions ? qSet.questions.length : 0;
-                  totalMarksSum += Number(sec.marks || 0);
-                } catch (e) {
-                  console.error(e);
-                }
-              })
-            );
+        sections.forEach((sec) => {
+          totalQCount += sec.questions ? sec.questions.length : 0;
+          totalMarksSum += Number(sec.marks || 0);
+        });
 
-            return {
-              ...t,
-              sectionsList: sections,
-              totalSections: sections.length || t.totalSections || 0,
-              questionsCount: totalQCount || t.questionsCount || 0,
-              totalMarks: totalMarksSum || t.totalMarks || 100,
-            };
-          } catch (e) {
-            console.error(e);
-          }
-          return {
-            ...t,
-            questionsCount: t.questionsCount || 0,
-            totalSections: t.totalSections || 0,
-          };
-        })
-      );
+        return {
+          ...t,
+          sectionsList: sections,
+          totalSections: sections.length || t.totalSections || 0,
+          questionsCount: totalQCount || t.questionsCount || 0,
+          totalMarks: totalMarksSum || t.totalMarks || 100,
+        };
+      });
 
       setTests(enrichedItems);
     } catch (err) {
@@ -134,11 +115,12 @@ export default function TestListPage() {
     fetchTests();
   }, [fetchTests]);
 
-  const stats = useMemo(() => ({
-    total: tests.length,
-    sections: tests.reduce((sum, t) => sum + (t.totalSections || 0), 0),
-    questions: tests.reduce((sum, t) => sum + (t.questionsCount || 0), 0),
-  }), [tests]);
+  const stats = useMemo(() => {
+    const total = tests.length;
+    const active = tests.filter(t => t.active === true || t.active === 'true' || String(t.status).toLowerCase() === 'active').length;
+    const inactive = Math.max(0, total - active);
+    return { total, active, inactive };
+  }, [tests]);
 
   const filtered = useMemo(() => {
     let arr = tests;
@@ -228,8 +210,8 @@ export default function TestListPage() {
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <StatMini icon={<FiFileText className="w-4 h-4" />} label="Total Tests" value={stats.total} color="blue" loading={loading} />
-        <StatMini icon={<FiLayers className="w-4 h-4" />} label="Total Sections" value={stats.sections} color="amber" loading={loading} />
-        <StatMini icon={<FiCheckCircle className="w-4 h-4" />} label="Total Questions" value={stats.questions} color="green" loading={loading} />
+        <StatMini icon={<FiCheckCircle className="w-4 h-4" />} label="Active Tests" value={stats.active} color="green" loading={loading} />
+        <StatMini icon={<FiAlertTriangle className="w-4 h-4" />} label="Inactive Tests" value={stats.inactive} color="slate" loading={loading} />
       </div>
 
       {/* Search */}

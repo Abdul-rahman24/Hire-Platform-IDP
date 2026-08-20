@@ -40,53 +40,54 @@ export default function QuestionBankApp() {
     setLoadingSets(true);
 
     questionBankService.getQuestionSets()
-      .then(async (res) => {
+      .then((res) => {
         const setList = res?.data || res?.questionSets || (Array.isArray(res) ? res : []);
         if (Array.isArray(setList) && setList.length > 0) {
-          const fetchedSets = await Promise.all(
-            setList.map(async (setObj) => {
-              const id = setObj.questionSetId || setObj.id;
-              try {
-                const details = await questionBankService.getQuestionSet(id);
-                if (details && !details.notFound) {
-                  const rawQuestions = details.questions || details.data?.questions || [];
-                  const validQuestions = rawQuestions.filter(q => q.itemType !== 'QUESTION_SET_HEADER' && (q.questionId || q.id || q.question));
-                  const count = details.totalQuestions !== undefined ? details.totalQuestions : validQuestions.length;
-                  const setTitle = setObj.title || setObj.name || details.setDetails?.title || details.title || `Assessment Set: ${id}`;
-                  const deducedType = setObj.setType || details.setType || details.setDetails?.setType || (validQuestions.some(q => (q.questionType || '').toUpperCase() === 'CODING' || q.language !== undefined) ? 'CODING' : 'MCQ');
-                  return {
-                    id,
-                    questionSetId: id,
-                    name: setTitle,
-                    updated: 'Active set',
-                    questionsCount: count,
-                    status: 'Active',
-                    setType: deducedType,
-                  };
-                }
-              } catch {
-                // fallback
+          const initialSets = setList.map((setObj) => {
+            const id = setObj.questionSetId || setObj.id;
+            return {
+              id,
+              questionSetId: id,
+              name: setObj.title || setObj.name || `Assessment Set: ${id}`,
+              updated: 'Active set',
+              questionsCount: null,
+              loadingCount: true,
+              status: 'Active',
+              setType: setObj.setType || 'MCQ',
+            };
+          });
+
+          setSets(initialSets);
+          setLoadingSets(false);
+
+          // Fetch each set details asynchronously in background
+          initialSets.forEach(async (setObj) => {
+            try {
+              const details = await questionBankService.getQuestionSet(setObj.id);
+              if (details && !details.notFound) {
+                const rawQuestions = details.questions || details.data?.questions || [];
+                const validQuestions = rawQuestions.filter(q => q.itemType !== 'QUESTION_SET_HEADER' && (q.questionId || q.id || q.question));
+                const count = details.totalQuestions !== undefined ? details.totalQuestions : validQuestions.length;
+                const deducedType = setObj.setType || details.setType || details.setDetails?.setType || (validQuestions.some(q => (q.questionType || '').toUpperCase() === 'CODING' || q.language !== undefined) ? 'CODING' : 'MCQ');
+                
+                setSets(prevSets => prevSets.map(s => s.id === setObj.id ? {
+                  ...s,
+                  name: setObj.name || details.setDetails?.title || details.title || s.name,
+                  questionsCount: count,
+                  setType: deducedType,
+                  loadingCount: false,
+                } : s));
               }
-              return {
-                id,
-                questionSetId: id,
-                name: setObj.title || setObj.name || `Assessment Set: ${id}`,
-                updated: 'Active set',
-                questionsCount: 0,
-                status: 'Active',
-                setType: setObj.setType || 'MCQ',
-              };
-            })
-          );
-          if (fetchedSets.length > 0) {
-            setSets(fetchedSets);
-          }
+            } catch (err) {
+              setSets(prevSets => prevSets.map(s => s.id === setObj.id ? { ...s, loadingCount: false, questionsCount: 0 } : s));
+            }
+          });
+        } else {
+          setLoadingSets(false);
         }
       })
       .catch((err) => {
         console.error('Failed to fetch question sets list from API:', err);
-      })
-      .finally(() => {
         setLoadingSets(false);
       });
   }, []);

@@ -243,24 +243,13 @@ export const testConfigService = {
       const response = await testApi.get(`/tests/${encodeURIComponent(testId)}/complete`);
       const data = response.data || response;
       if (data && Array.isArray(data.sections)) {
-        const enrichedSections = await Promise.all(
-          data.sections.map(async (sec) => {
-            const normalized = normalizeSection(sec);
-            try {
-              const details = await this.getQuestionSetDetails(normalized.questionSetId);
-              return {
-                ...normalized,
-                questionType: details.setType || normalized.questionType,
-                questions: details.questions || [],
-              };
-            } catch {
-              return {
-                ...normalized,
-                questions: normalized.questions || [],
-              };
-            }
-          })
-        );
+        const enrichedSections = data.sections.map((sec) => {
+          const normalized = normalizeSection(sec);
+          return {
+            ...normalized,
+            questions: sec.questions || [],
+          };
+        });
         data.sections = enrichedSections;
         return data;
       }
